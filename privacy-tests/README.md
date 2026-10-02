@@ -22,6 +22,9 @@ npm run browser     # once: downloads the test browser
 npm test
 ```
 
+If the browser download fails (it comes from `cdn.playwright.dev`), skip `npm run browser` and
+use a browser already on the computer instead: `npm run test:edge` or `npm run test:chrome`.
+
 The first lines install the web app, which the tests build and start themselves on port 13000
 (the stand-in signer uses 18081). Hunts made by the tests go into `privacy-tests/.data/`, never
 into `quest-web/data/`. A run takes about a minute after the build.

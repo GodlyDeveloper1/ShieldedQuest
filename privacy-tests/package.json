@@ -6,6 +6,8 @@
   "type": "module",
   "scripts": {
     "test": "playwright test",
+    "test:edge": "playwright test -c playwright.edge.config.ts",
+    "test:chrome": "playwright test -c playwright.chrome.config.ts",
     "browser": "playwright install chromium"
   },
   "devDependencies": {
