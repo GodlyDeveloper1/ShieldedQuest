@@ -26,12 +26,23 @@ type WasmBindgen = ((init: { module_or_path: string }) => Promise<unknown>) & {
 };
 declare global {
   interface Window {
-    wasm_bindgen?: WasmBindgen;
+    __potKeys?: WasmBindgen;
   }
 }
 
 const JS_URL = "/wasm/pot_keys.js";
+const EXPOSE_URL = "/wasm/expose.js"; // hands the module's entry point to this code, see that file
 const WASM_URL = "/wasm/pot_keys_bg.wasm";
+
+function addScript(src: string): Promise<void> {
+  return new Promise<void>((resolve, reject) => {
+    const s = document.createElement("script");
+    s.src = src;
+    s.onload = () => resolve();
+    s.onerror = () => reject(new Error("couldn't load the key module"));
+    document.head.appendChild(s);
+  });
+}
 
 let loading: Promise<WasmBindgen | null> | null = null;
 
@@ -42,14 +53,9 @@ function load(): Promise<WasmBindgen | null> {
       if (typeof WebAssembly !== "object") return null;
       const head = await fetch(JS_URL, { method: "HEAD" });
       if (!head.ok) return null;
-      await new Promise<void>((resolve, reject) => {
-        const s = document.createElement("script");
-        s.src = JS_URL;
-        s.onload = () => resolve();
-        s.onerror = () => reject(new Error("couldn't load the key module"));
-        document.head.appendChild(s);
-      });
-      const wb = window.wasm_bindgen;
+      await addScript(JS_URL);
+      await addScript(EXPOSE_URL);
+      const wb = window.__potKeys;
       if (!wb) return null;
       await wb({ module_or_path: WASM_URL });
       return wb;
