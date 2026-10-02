@@ -37,9 +37,11 @@ one-click claim the site does see the fresh shielded address the winner pastes
 
 **Answers and guesses.** Answers are turned into keys with Argon2id (64 MiB,
 3 passes) in the browser and never sent anywhere. Each guess is checked by
-trying to decrypt the stage locally. We verified in a browser test that no
-request ever carries a guess, answer or clue text, and that the browser contacts
-no host other than the site itself (no fonts, analytics or CDNs).
+trying to decrypt the stage locally. A browser test (`privacy-tests/` in the
+repository, test `01-guesses`) records every request and checks that none ever
+carries a guess, an answer or a later clue, that nothing with a body is sent
+while guessing, and that the browser contacts no host other than the site itself
+(no fonts, analytics or CDNs).
 
 **Progress.** How far a solver has got lives in that tab's `sessionStorage`
 only. The server can't tell who is solving, how many guesses they made, or
@@ -66,8 +68,9 @@ it, and stage 1 is chained to it, so without the invite a correct answer doesn't
 even decrypt. The key travels only in the invite link's `#fragment`
 (`/hunt/<id>#k=…`), which browsers never send to a server. The published file
 has a placeholder title and an empty first clue; private hunts are left out of
-every list. We verified in a browser test that no request carries the key, the
-title or the first clue, and that the stored file contains none of them. What
+every list. A browser test (`03-private-hunt`) checks that no request carries
+the key, the title or the first clue, and that the stored file contains none of
+them. What
 the server still sees for a private hunt: that it exists, its id, its stage
 count, its publication day, its pot (address, viewing key, balance) and the
 sizes of its encrypted parts.
@@ -78,9 +81,10 @@ site, no third party). The browser derives the pot's viewing key and the seed's
 fingerprint (a one-way hash) and sends only those two values. The signer
 registers the pot from them and never receives the phrase. The create page shows
 a green "Made in your browser" box, and its Privacy X-ray lists the request with
-"seed phrase: not sent". We verified in a browser test, against a production
-build with the Content-Security-Policy on, that the phrase appears in no request
-and that the browser derives exactly the key the signer derives from the same
+"seed phrase: not sent". A browser test (`02-prize-key`), run against a
+production build with the Content-Security-Policy on, checks that the phrase
+appears in no request, in nothing the signer receives and in no stored file, and
+that the browser derives exactly the key the native code derives from the same
 phrase. From then on the phrase exists in the creator's backup file and,
 encrypted, inside the hunt's last stage.
 
@@ -149,6 +153,12 @@ Transparent addresses are refused as claim destinations.
 - Rate limits use only the address our own proxy reports, pot lookups for public
   pages are cached for a few seconds, and practice-hunt refills are capped per
   hour. See [`../SECURITY.md`](../SECURITY.md) for the full review.
+- **Privacy tests anyone can run.** The `privacy-tests/` folder holds ten
+  browser tests that record every request and check the claims on this page:
+  guesses, the prize key, private hunts, the claim, other hosts and cookies, and
+  clue media. They run on every push, and were checked against deliberate leaks
+  to confirm they fail when privacy is broken. Its README lists what they cover
+  and what they can't.
 - **Privacy X-ray** on every app page: a live log of each request the page makes
   (method, address, what was in the body, in plain words) and each check done
   locally. It counts guesses sent to the server by checking outgoing bodies for

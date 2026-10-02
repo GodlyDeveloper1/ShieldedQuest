@@ -51,6 +51,8 @@ What the site itself can and can't learn is spelled out, party by party, in
 - **Share** by link, QR code or app. **Verify** with ready-to-run commands. **Reclaim** an
   unsolved prize with the creator's backup file.
 - **A one-minute practice hunt** with a real testnet prize, claimable without a wallet.
+- **Privacy tests anyone can run.** Ten browser tests record every request the pages make and
+  check the claims above. See [`privacy-tests/`](privacy-tests/README.md).
 - **Documentation** inside the app, a [threat model](quest-web/PRIVACY.md) and a
   [security review](SECURITY.md).
 
@@ -90,6 +92,7 @@ hunts are also made by the server, which writes them and so knows their answers 
 | `signer/` | Rust service: wallet sync, sends, pot registration and claims. Holds its own wallet seed and pots' viewing keys. Listens on 127.0.0.1 only. |
 | `pot-keys/` | Rust crate compiled to WebAssembly. Makes a pot's seed phrase, viewing key and seed fingerprint in the browser. 5 tests. |
 | `quest-crypto/` | TypeScript library: Argon2id key chain, AES-256-GCM stages, invite keys, media encryption. Runs in the browser and in Node. 24 tests. |
+| `privacy-tests/` | Browser tests (Playwright) that record every request and check the privacy claims against a production build, with a stand-in signer. 10 tests. |
 | `quest-web/` | Next.js app: landing page, create, browse, solve, claim, verify, reclaim, docs. The built `pot-keys` module is committed under `public/wasm/`. |
 | `docker-compose.yml`, `zcash.conf` | Optional own node: Zebra + lightwalletd on testnet. |
 
@@ -161,6 +164,7 @@ Zebra's first testnet sync takes a day or more. When it's done, point the signer
 | `NEXT_PUBLIC_EXPLORER_TX_URL` | quest-web | `https://testnet.zecblock.com/tx/` | Block explorer link prefix for payout transactions |
 | `TRUST_PROXY` | quest-web | off | Set to `1` behind your own reverse proxy so rate limits see visitors' addresses |
 | `RATE_LIMITS` | quest-web | on in production | Set to `on` to enforce rate limits under `npm run dev` too |
+| `QUEST_DATA_DIR` | quest-web | `quest-web/data` | Folder for published hunts, encrypted media and the practice-hunt registry |
 
 ## Signer API (127.0.0.1 only)
 
@@ -212,10 +216,21 @@ cargo test
 5 tests cover the browser key module, including that it derives exactly the viewing key the
 signer derives from the same seed phrase.
 
-Both suites, a signer compile check, a WebAssembly build of the key module and a production
-build of the web app run on every push: see
-[`.github/workflows/ci.yml`](.github/workflows/ci.yml). The real flow (fund, solve, claim)
-needs a synced signer and testnet coins, so it is tested by hand.
+```
+cd privacy-tests
+npm install
+npm run browser
+npm test
+```
+
+10 browser tests check the privacy claims: they drive the real pages, record every request, and
+read back what the server stored. They need the web app installed (step 2 above) but no signer
+and no coins. [`privacy-tests/README.md`](privacy-tests/README.md) lists what each one checks.
+
+All three suites, a signer compile check, a WebAssembly build of the key module and a
+production build of the web app run on every push: see
+[`.github/workflows/ci.yml`](.github/workflows/ci.yml). The real flow on testnet (fund, solve,
+claim) needs a synced signer and coins, so it is tested by hand.
 
 ## Privacy and security
 

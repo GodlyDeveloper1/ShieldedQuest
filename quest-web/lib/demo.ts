@@ -13,10 +13,11 @@ import { createHunt } from "quest-crypto";
 import { createPot, potStatus, potStatusCached, send } from "./signer";
 import { saveHunt } from "./store";
 import { LIMITS, spend } from "./ratelimit";
+import { DATA_DIR } from "./datadir";
 
 const POOL_SIZE = Number(process.env.DEMO_POOL_SIZE ?? 3);
 const PRIZE_ZAT = Number(process.env.DEMO_PRIZE_ZAT ?? 100_000); // 0.001 TAZ
-const REG_FILE = path.join(process.cwd(), "data", "demo.json");
+const REG_FILE = path.join(DATA_DIR, "demo.json");
 
 export const DEMO = {
   title: "Practice: First Steps",

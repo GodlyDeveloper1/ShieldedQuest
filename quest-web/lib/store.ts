@@ -4,8 +4,9 @@ import "server-only";
 import { promises as fs } from "node:fs";
 import path from "node:path";
 import type { Hunt } from "quest-crypto";
+import { DATA_DIR } from "./datadir";
 
-const DIR = path.join(process.cwd(), "data", "hunts");
+const DIR = path.join(DATA_DIR, "hunts");
 
 export interface StoredHunt {
   hunt: Hunt;

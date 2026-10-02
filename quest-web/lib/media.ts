@@ -5,8 +5,9 @@ import "server-only";
 import { promises as fs } from "node:fs";
 import path from "node:path";
 import { listHunts } from "./store";
+import { DATA_DIR } from "./datadir";
 
-const DIR = path.join(process.cwd(), "data", "media");
+const DIR = path.join(DATA_DIR, "media");
 export const MAX_MEDIA_BYTES = 25 * 1024 * 1024 + 28; // 25 MB file + nonce + tag
 const MAX_TOTAL_BYTES = Number(process.env.MEDIA_MAX_TOTAL_MB ?? 3000) * 1024 * 1024;
 // A hunt is published seconds after its files upload, so anything unclaimed after two hours is abandoned.

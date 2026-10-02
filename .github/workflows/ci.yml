@@ -1,5 +1,6 @@
-# Runs on every push: the tests, a signer compile check and a production build
-# of the web app, from a clean machine. No secrets are used, and nothing here
+# Runs on every push: the tests (including the browser tests of the privacy
+# claims), a signer compile check and a production build of the web app, from a
+# clean machine. No secrets are used, and nothing here
 # touches a wallet or the network beyond downloading dependencies.
 #
 # What this can't cover: the real flow (fund, solve, claim) needs a synced signer
@@ -60,6 +61,33 @@ jobs:
         working-directory: quest-web
       - run: npm run build
         working-directory: quest-web
+
+  privacy:
+    name: Privacy claims (10 browser tests)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: |
+            quest-crypto/package-lock.json
+            quest-web/package-lock.json
+            privacy-tests/package-lock.json
+      - run: npm ci
+        working-directory: quest-crypto
+      - run: npm ci
+        working-directory: quest-web
+      - run: npm ci
+        working-directory: privacy-tests
+      - name: Install the test browser
+        run: npx playwright install --with-deps chromium
+        working-directory: privacy-tests
+      # Builds the web app, starts it with a stand-in signer, records every
+      # request the pages make and checks the privacy claims against them.
+      - run: npm test
+        working-directory: privacy-tests
 
   pot-keys:
     name: Browser key module (5 tests, WebAssembly build)

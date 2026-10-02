@@ -10,7 +10,7 @@ To report a problem, open an issue or message @Diaguren_Labs.
 
 | Area | Result |
 |---|---|
-| Secrets in requests | Answers, guesses, stage keys and invite keys never leave the browser. Verified in browser tests that record every request. The only secret-bearing request is the claim (seed phrase + payout address). Pot creation sends the pot's viewing key and seed fingerprint, not the seed phrase, which is made in the creator's browser. The server-made fallback (browsers without WebAssembly, and practice hunts) returns the phrase once. |
+| Secrets in requests | Answers, guesses, stage keys and invite keys never leave the browser. Verified by the browser tests in `privacy-tests/`, which record every request, read back what the server stored and what the signer was sent, and run on every push. The only secret-bearing request is the claim (seed phrase + payout address). Pot creation sends the pot's viewing key and seed fingerprint, not the seed phrase, which is made in the creator's browser. The server-made fallback (browsers without WebAssembly, and practice hunts) returns the phrase once. |
 | Secrets at rest | The server stores hunt files (ciphertext, public pot details), encrypted media, and the practice-hunt registry. The signer stores its own wallet seed and each pot's viewing key; never a pot's seed phrase. |
 | Logging | The web app logs no request bodies. The signer logs transaction ids and error text; error text never includes a seed phrase. |
 | Input validation | Hunt ids, media ids and pot ids are checked against strict patterns before touching the filesystem or the signer. Hunt files are validated and rebuilt from known fields only. Claim destinations must be shielded testnet addresses. |

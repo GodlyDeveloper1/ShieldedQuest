@@ -1,0 +1,15 @@
+{
+  "name": "privacy-tests",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Shielded Quest: browser tests that record every request and check the privacy claims",
+  "type": "module",
+  "scripts": {
+    "test": "playwright test",
+    "browser": "playwright install chromium"
+  },
+  "devDependencies": {
+    "@playwright/test": "1.56.0",
+    "@types/node": "^22.0.0"
+  }
+}
