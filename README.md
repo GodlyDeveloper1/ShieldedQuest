@@ -1,5 +1,7 @@
 # Shielded Quest
 
+[![tests](https://github.com/GodlyDeveloper1/ShieldedQuest/actions/workflows/ci.yml/badge.svg)](https://github.com/GodlyDeveloper1/ShieldedQuest/actions/workflows/ci.yml)
+
 **Privacy first. Solve puzzles without being known.** Treasure hunts with a shielded Zcash prize. Hide ZEC behind a riddle. Solvers' guesses never
 leave their browser, anyone can verify the prize is real, and nobody can see who won.
 
@@ -209,6 +211,11 @@ cargo test
 
 5 tests cover the browser key module, including that it derives exactly the viewing key the
 signer derives from the same seed phrase.
+
+Both suites, a signer compile check, a WebAssembly build of the key module and a production
+build of the web app run on every push: see
+[`.github/workflows/ci.yml`](.github/workflows/ci.yml). The real flow (fund, solve, claim)
+needs a synced signer and testnet coins, so it is tested by hand.
 
 ## Privacy and security
 
