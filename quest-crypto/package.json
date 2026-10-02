@@ -1,0 +1,22 @@
+{
+  "name": "quest-crypto",
+  "version": "0.1.0",
+  "description": "Shielded Quest: answer-locked hunt stages (Argon2id key chain + AES-256-GCM), browser and Node",
+  "type": "module",
+  "scripts": {
+    "build": "tsc -p .",
+    "test": "tsx --test test/quest.test.ts"
+  },
+  "dependencies": {
+    "hash-wasm": "^4.12.0"
+  },
+  "devDependencies": {
+    "tsx": "^4.19.0",
+    "typescript": "^5.6.0",
+    "@types/node": "^22.0.0"
+  },
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "types": "./src/index.ts"
+}

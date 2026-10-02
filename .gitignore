@@ -1,0 +1,35 @@
+# Rust build output
+signer/target/
+
+# Wallet seeds, signer state, published hunts, uploads — never commit
+signer/data/
+signer/data-*/
+data/
+*.tmp
+
+# Secrets and local settings
+.env
+.env.*
+!.env.example
+
+# Reference code and test wallets (devwallet holds a pot seed) — never commit
+ref/
+devwallet/
+
+# Node / Next.js
+node_modules/
+dist/
+.next/
+*.tsbuildinfo
+next-env.d.ts
+
+# Files parked for deletion, and screenshots from development
+_to_delete/
+quest-web/_to_delete/
+Claude outputs/
+
+# Editors and OS
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
