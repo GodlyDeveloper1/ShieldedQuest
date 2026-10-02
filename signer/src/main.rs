@@ -456,9 +456,19 @@ async fn main() {
         .route("/pots/{id}/claim", post(claim_pot))
         .with_state(state);
 
-    // Always loopback-only. SIGNER_PORT lets a second, test instance run beside the main one.
+    // Loopback-only unless told otherwise. SIGNER_PORT lets a second, test instance run
+    // beside the main one. SIGNER_BIND_ADDR exists for containers, where the web app is a
+    // separate container on a private network and can't reach this one's loopback. The
+    // signer has no authentication: whatever can reach this port can spend its wallet.
     let port: u16 = std::env::var("SIGNER_PORT").ok().and_then(|p| p.parse().ok()).unwrap_or(8081);
-    let addr = SocketAddr::from(([127, 0, 0, 1], port));
+    let ip: std::net::IpAddr = match std::env::var("SIGNER_BIND_ADDR") {
+        Ok(v) if !v.trim().is_empty() => v.trim().parse().expect("SIGNER_BIND_ADDR must be an IP address, e.g. 0.0.0.0"),
+        _ => std::net::IpAddr::from([127, 0, 0, 1]),
+    };
+    let addr = SocketAddr::new(ip, port);
+    if !ip.is_loopback() {
+        println!("WARNING: listening beyond this machine's loopback ({addr}). Only the web app must be able to reach this port: never publish it.");
+    }
     println!("signer listening on {addr}");
     let listener = tokio::net::TcpListener::bind(addr).await.unwrap();
     axum::serve(listener, app).await.unwrap();

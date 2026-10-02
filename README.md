@@ -89,17 +89,47 @@ hunts are also made by the server, which writes them and so knows their answers 
 
 | Folder | What it is |
 |---|---|
-| `signer/` | Rust service: wallet sync, sends, pot registration and claims. Holds its own wallet seed and pots' viewing keys. Listens on 127.0.0.1 only. |
+| `signer/` | Rust service: wallet sync, sends, pot registration and claims. Holds its own wallet seed and pots' viewing keys. Listens on 127.0.0.1 by default and is never published. |
 | `pot-keys/` | Rust crate compiled to WebAssembly. Makes a pot's seed phrase, viewing key and seed fingerprint in the browser. 5 tests. |
 | `quest-crypto/` | TypeScript library: Argon2id key chain, AES-256-GCM stages, invite keys, media encryption. Runs in the browser and in Node. 24 tests. |
 | `privacy-tests/` | Browser tests (Playwright) that record every request and check the privacy claims against a production build, with a stand-in signer. 10 tests. |
 | `quest-web/` | Next.js app: landing page, create, browse, solve, claim, verify, reclaim, docs. The built `pot-keys` module is committed under `public/wasm/`. |
-| `docker-compose.yml`, `zcash.conf` | Optional own node: Zebra + lightwalletd on testnet. |
+| `docker-compose.yml` | Runs the signer and the web app with one command. Also the optional own node (Zebra + lightwalletd on testnet, with `zcash.conf`). |
 
-## Run it
+## Run it with Docker
+
+The quickest way. You need [Docker](https://www.docker.com/products/docker-desktop/) and nothing
+else.
+
+```
+docker compose up --build
+```
+
+The first build takes 20–40 minutes, because the signer compiles Zcash's proving code. When the
+log shows a line like `synced to 4422669 (tip 4422669) …`, open http://127.0.0.1:3000.
+
+You can create, solve and claim hunts straight away: a hunt's prize is funded from your own
+testnet wallet, not from the signer. To turn on the one-minute practice hunt, fund the signer's
+wallet from a testnet faucet and restart with `DEMO_POOL_SIZE=3`:
+
+```
+docker compose exec web node -e "fetch('http://signer:8081/address',{method:'POST'}).then(r=>r.json()).then(j=>console.log(j.address))"
+```
+
+What the Compose file sets up:
+
+- The **signer has no published port**. It shares a private network with the web app, which is
+  the only thing that can call it.
+- The **web app is published on 127.0.0.1 only**. To host it, put a reverse proxy in front.
+- The wallet seed and pot records are in the `signer-data` volume; published hunts and encrypted
+  media are in `web-data`. `docker compose down` keeps them; `docker compose down -v` deletes
+  them, wallet included.
+
+Settings such as `WEB_PORT` are listed at the top of [`docker-compose.yml`](docker-compose.yml).
+
+## Run it from source
 
 You need [Rust](https://rustup.rs/) (stable) and [Node.js](https://nodejs.org/) 22 or newer.
-Docker Desktop is only needed for the optional own node.
 
 ### 1. The signer
 
@@ -141,12 +171,13 @@ from source, see [`pot-keys/README.md`](pot-keys/README.md).
 ### 3. Optional: your own node
 
 ```
-docker compose up -d
+docker compose --profile node up -d zebra lightwalletd
 docker compose logs --tail 30 zebra | grep sync_percent
 ```
 
 Zebra's first testnet sync takes a day or more. When it's done, point the signer at it with
-`LIGHTWALLETD_URL=http://127.0.0.1:9067`. Check that a test signer (see `SIGNER_DATA_DIR` /
+`LIGHTWALLETD_URL=http://127.0.0.1:9067` (or `http://lightwalletd:9067` when the signer runs in
+Docker too). Check that a test signer (see `SIGNER_DATA_DIR` /
 `SIGNER_PORT` below) sees the same balance as one using the public server before switching.
 
 ## Configuration
@@ -156,7 +187,8 @@ Zebra's first testnet sync takes a day or more. When it's done, point the signer
 | `LIGHTWALLETD_URL` | signer | `https://testnet.zec.rocks:443` | Light client server to sync and broadcast through |
 | `SIGNER_BIRTHDAY` | signer | tip − 1000 | Height to start scanning a new wallet from |
 | `SIGNER_DATA_DIR` | signer | `data` | Folder for the wallet seed, database and pot records |
-| `SIGNER_PORT` | signer | `8081` | Port on 127.0.0.1 |
+| `SIGNER_PORT` | signer | `8081` | Port to listen on |
+| `SIGNER_BIND_ADDR` | signer | `127.0.0.1` | Address to listen on. Only for containers, where the web app is a separate container; the Compose file sets it. The signer has no authentication, so never expose its port |
 | `SIGNER_URL` | quest-web | `http://127.0.0.1:8081` | Where the web app finds the signer |
 | `DEMO_POOL_SIZE` | quest-web | `3` | Funded practice hunts to keep ready for the one-minute hunt (`0` turns the pool off) |
 | `DEMO_PRIZE_ZAT` | quest-web | `100000` | Prize per practice hunt, in zatoshis (0.001 TAZ), funded from the signer's wallet |
@@ -166,7 +198,7 @@ Zebra's first testnet sync takes a day or more. When it's done, point the signer
 | `RATE_LIMITS` | quest-web | on in production | Set to `on` to enforce rate limits under `npm run dev` too |
 | `QUEST_DATA_DIR` | quest-web | `quest-web/data` | Folder for published hunts, encrypted media and the practice-hunt registry |
 
-## Signer API (127.0.0.1 only)
+## Signer API (never public)
 
 | Route | Purpose |
 |---|---|

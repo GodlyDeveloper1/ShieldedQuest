@@ -11,7 +11,7 @@ do about it, and what we don't protect against. Testnet only.
 |---|---|---|
 | Browser (creator / solver) | the person's device | answers, stage keys; the pot seed phrase, which the creator's browser makes and a solver's browser unlocks |
 | Web app (Next.js) | the operator's machine | published hunt files (public by design) |
-| Signer (Rust) | the operator's machine, 127.0.0.1 only | its own wallet seed; pots' viewing keys; pot seeds only in memory during a claim |
+| Signer (Rust) | the operator's machine, reachable by the web app only | its own wallet seed; pots' viewing keys; pot seeds only in memory during a claim |
 | lightwalletd + Zebra | the operator's machine (or a public server, see limits) | the public chain |
 
 ## Who learns what
@@ -130,7 +130,8 @@ Transparent addresses are refused as claim destinations.
 ## Hardening in place
 
 - Signer binds to 127.0.0.1; the web app binds to 127.0.0.1 (`npm run dev` /
-  `npm start`), not the whole network.
+  `npm start`), not the whole network. Under Docker Compose the signer has no
+  published port and sits on a private network that only the web app shares.
 - `Referrer-Policy: no-referrer`, `X-Frame-Options: DENY`, `nosniff`, a
   restrictive `Permissions-Policy` and `Cross-Origin-Opener-Policy` on every
   page.

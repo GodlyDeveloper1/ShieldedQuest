@@ -1,9 +1,73 @@
-# TESTNET ONLY. Based on Zebra's official docker/docker-compose.lwd.yml, switched from
-# Mainnet (8232/8233) to Testnet (18232/18233) and slimmed down to run on a laptop.
+# Shielded Quest with Docker. TESTNET ONLY.
+#
+#   docker compose up --build
+#       The app: the signer and the web app, at http://127.0.0.1:3000.
+#       The first build takes 20-40 minutes (the signer compiles Zcash's proving code).
+#
+#   docker compose --profile node up -d
+#       Also your own Zcash node (Zebra + lightwalletd). Optional: the first sync
+#       takes a day or more. Then set LIGHTWALLETD_URL=http://lightwalletd:9067.
+#
+# Settings (in a .env file next to this one, or in your shell):
+#   WEB_PORT          port on this machine for the web app (default 3000)
+#   LIGHTWALLETD_URL  light client server the signer syncs through
+#                     (default https://testnet.zec.rocks:443)
+#   SIGNER_BIRTHDAY   block height to start scanning a new wallet from (default: near the tip)
+#   DEMO_POOL_SIZE    funded practice hunts to keep ready (default 0; set to 3 once
+#                     the signer's wallet holds testnet coins)
+#   TRUST_PROXY       set to 1 only behind your own reverse proxy
+#
+# Who can reach what:
+#   - The signer has no published port. It sits on a private network with the web
+#     app, which is the only thing that can call it. It has no authentication, so
+#     never add a `ports:` entry to it.
+#   - The web app is published on 127.0.0.1 only. To host it, put a reverse proxy
+#     in front (on the `front` network) rather than publishing it to the world.
+#   - Wallet seed, wallet database and pot records are in the `signer-data` volume;
+#     published hunts and encrypted media are in `web-data`. Back both up.
+
 services:
+  signer:
+    build: ./signer
+    init: true
+    restart: unless-stopped
+    environment:
+      SIGNER_BIND_ADDR: 0.0.0.0   # inside the container only; see "Who can reach what"
+      LIGHTWALLETD_URL: ${LIGHTWALLETD_URL:-https://testnet.zec.rocks:443}
+      SIGNER_BIRTHDAY: ${SIGNER_BIRTHDAY:-}
+    volumes:
+      - signer-data:/data
+    networks:
+      - signer    # the web app
+      - default   # the way out to the light client server (or to lightwalletd below)
+
+  web:
+    build:
+      context: .
+      dockerfile: quest-web/Dockerfile
+    init: true
+    restart: unless-stopped
+    depends_on:
+      - signer
+    environment:
+      SIGNER_URL: http://signer:8081
+      DEMO_POOL_SIZE: ${DEMO_POOL_SIZE:-0}
+      TRUST_PROXY: ${TRUST_PROXY:-}
+    volumes:
+      - web-data:/data
+    networks:
+      - signer
+      - front
+    ports:
+      - "127.0.0.1:${WEB_PORT:-3000}:3000"
+
+  # --- Optional: your own node (profile "node") ---------------------------------
+  # Based on Zebra's official docker/docker-compose.lwd.yml, switched from
+  # Mainnet (8232/8233) to Testnet (18232/18233) and slimmed down to run on a laptop.
   zebra:
+    profiles: ["node"]
     container_name: zebra
-    image: zfnd/zebra          # pin a release tag from hub.docker.com/r/zfnd/zebra/tags once you've picked one
+    image: zfnd/zebra:6.4.2    # pinned to the version first synced; check hub.docker.com/r/zfnd/zebra/tags if you change it
     platform: linux/amd64
     restart: unless-stopped
     volumes:
@@ -15,6 +79,7 @@ services:
       - ZEBRA_RPC__ENABLE_COOKIE_AUTH=false   # lightwalletd doesn't support cookie auth
 
   lightwalletd:
+    profiles: ["node"]
     image: electriccoinco/lightwalletd
     platform: linux/amd64
     container_name: lightwalletd
@@ -46,7 +111,13 @@ configs:
   lwd_config:
     file: ./zcash.conf
 
+networks:
+  signer:   # signer <-> web app, nothing else
+  front:    # web app <-> a reverse proxy, when hosted
+
 volumes:
+  signer-data:
+  web-data:
   zebrad-cache:
     driver: local
   lwd-cache:

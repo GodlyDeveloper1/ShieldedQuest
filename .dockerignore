@@ -1,0 +1,26 @@
+# Keep secrets, local state and build output out of every image build.
+.git
+.github
+**/node_modules
+**/target
+**/.next
+**/*.tsbuildinfo
+**/.env
+**/.env.*
+!**/.env.example
+
+# Wallet seeds, signer state, published hunts, uploads
+signer/data
+signer/data-*
+quest-web/data
+devwallet
+ref
+_to_delete
+quest-web/_to_delete
+Claude outputs
+
+# Not needed to build the app
+privacy-tests
+pot-keys
+docs
+notes
