@@ -11,9 +11,10 @@ Built solo by [@Diaguren_Labs](https://x.com/Diaguren_Labs) for the
 
 ## What it does
 
-A creator writes a hunt: a first clue, then an answer and a next clue for each stage. The site
-makes a fresh Zcash pot for the prize. The creator's browser locks each stage behind its answer,
-seals the pot's seed phrase inside the last one, and publishes only ciphertext. Solvers answer
+A creator writes a hunt: a first clue, then an answer and a next clue for each stage. The
+creator's browser makes a fresh Zcash pot for the prize and gives the site only its viewing key.
+It then locks each stage behind its answer, seals the pot's seed phrase inside the last one, and
+publishes only ciphertext. Solvers answer
 clue by clue in their own browser, and the final answer unlocks the prize. The winner claims with
 one click to a shielded address, or sweeps the pot from their own wallet.
 
@@ -21,6 +22,7 @@ one click to a shielded address, or sweeps the pot from their own wallet.
 |---|---|
 | **Guesses stay on your device** | Every guess is stretched with Argon2id (64 MiB) and tried against the locked stage locally. Wrong or right, nothing is sent. |
 | **The server holds ciphertext** | Hunts are stored locked and padded to equal sizes. Nothing the site stores can reveal an answer, a later clue or the prize key. |
+| **The prize key is made in the browser** | The pot's 24-word seed phrase is generated in the creator's browser (Rust compiled to WebAssembly). The server receives the viewing key, which can see the balance but can't spend. It never sees the seed phrase at creation. |
 | **The prize is verifiable** | Each pot's viewing key is published. Check the balance in any Zcash tool, without trusting the site. |
 | **The chain doesn't show the winner** | The claim is one shielded transaction that discards the outgoing viewing key, so even the public viewing key can't see where the prize went. |
 
@@ -30,6 +32,9 @@ What the site itself can and can't learn is spelled out, party by party, in
 ## Features
 
 - **Create a hunt** from a template or from scratch, with a crack-time meter for every answer.
+- **Browser-made prize pots.** The pot's keys are derived in the creator's browser by the
+  `pot-keys` module; only the viewing key is sent. The create page shows which side made the
+  pot, in green or orange.
 - **Private, invite-only hunts.** The title and first clue are encrypted with a key that lives
   only in the invite link's `#fragment`, which browsers never send to a server. Unlisted, and a
   correct answer doesn't work without the invite.
@@ -65,17 +70,25 @@ the pot's seed phrase. All stages are padded to the same size. `k_0` is zero byt
 hunt and the invite key for a private one, whose title and first clue are sealed with that key
 too.
 
-The signer creates each pot as a fresh 24-word wallet, keeps only its viewing key, and sweeps it
-with one shielded transaction when a valid seed phrase is presented. The sweep discards the
-outgoing viewing key, so the published viewing key can't reveal the winner.
+Each pot is a fresh 24-word wallet made in the creator's browser. The `pot-keys` module derives
+its unified full viewing key (ZIP 32, Orchard + Sapling) and the seed's fingerprint, and the
+signer registers the pot from those two values alone. A test checks the browser's derivation is
+identical to the signer's. The signer sweeps a pot with one shielded transaction when a valid
+seed phrase is presented. The sweep discards the outgoing viewing key, so the published viewing
+key can't reveal the winner.
+
+If a browser can't run WebAssembly, the create page says so ("Made by the server") and the
+signer makes the pot instead, handing the seed phrase over once without storing it. Practice
+hunts are also made by the server, which writes them and so knows their answers anyway.
 
 ## Repository layout
 
 | Folder | What it is |
 |---|---|
-| `signer/` | Rust service, the only thing that holds keys. Wallet sync, sends, pot creation and claims. Listens on 127.0.0.1 only. |
+| `signer/` | Rust service: wallet sync, sends, pot registration and claims. Holds its own wallet seed and pots' viewing keys. Listens on 127.0.0.1 only. |
+| `pot-keys/` | Rust crate compiled to WebAssembly. Makes a pot's seed phrase, viewing key and seed fingerprint in the browser. 5 tests. |
 | `quest-crypto/` | TypeScript library: Argon2id key chain, AES-256-GCM stages, invite keys, media encryption. Runs in the browser and in Node. 24 tests. |
-| `quest-web/` | Next.js app: landing page, create, browse, solve, claim, verify, reclaim, docs. |
+| `quest-web/` | Next.js app: landing page, create, browse, solve, claim, verify, reclaim, docs. The built `pot-keys` module is committed under `public/wasm/`. |
 | `docker-compose.yml`, `zcash.conf` | Optional own node: Zebra + lightwalletd on testnet. |
 
 ## Run it
@@ -117,6 +130,9 @@ npm run dev
 Open http://127.0.0.1:3000. The app talks to the signer at `SIGNER_URL`
 (default `http://127.0.0.1:8081`). For a production build: `npm run build`, then `npm start`.
 
+The browser key module is already built and committed, so nothing else is needed. To rebuild it
+from source, see [`pot-keys/README.md`](pot-keys/README.md).
+
 ### 3. Optional: your own node
 
 ```
@@ -153,7 +169,8 @@ Zebra's first testnet sync takes a day or more. When it's done, point the signer
 | `POST /address` | A fresh, never-reused address |
 | `GET /payments` | Sync status, balances, received payments with memos, sent transactions |
 | `POST /send` `{to, zatoshis, memo}` | Build, prove and broadcast a payment |
-| `POST /pots` | New prize pot; returns its seed phrase **once** |
+| `POST /pots/import` `{viewing_key, seed_fingerprint}` | Register a pot made in the browser. No seed phrase involved |
+| `POST /pots` | Fallback: the signer makes the pot and returns its seed phrase **once** |
 | `GET /pots/{id}` | Pot balance (verified via its viewing key) and claimed flag |
 | `POST /pots/{id}/claim` `{seed_phrase, to}` | Sweep the whole pot to a shielded address; locks the pot |
 
@@ -161,8 +178,9 @@ Zebra's first testnet sync takes a day or more. When it's done, point the signer
 
 1. **Create.** At `/create`, write the clues and answers. The page shows how long a computer would
    need to guess each answer; a simple final answer needs your explicit OK. Tick "Private hunt"
-   for an invite-only one. Continue, download the backup file (seed phrase, answers and, for a
-   private hunt, the invite key) and tick the box. Lock and publish.
+   for an invite-only one. Continue: a green box confirms the pot's keys were made in your
+   browser. Download the backup file (seed phrase, answers and, for a private hunt, the invite
+   key) and tick the box. Lock and publish.
 2. **Fund.** Send TAZ from a shielded balance to the pot address shown, with no memo.
 3. **Verify.** The hunt page shows the verified prize after about 3 confirmations, plus the
    viewing key and the hunt file's SHA-256 fingerprint.
@@ -184,6 +202,14 @@ npm test
 24 tests cover solving, wrong answers, key chaining, tampering, swapped stages, KDF floors,
 padding, media encryption, private hunts and the no-secrets-in-the-file check.
 
+```
+cd pot-keys
+cargo test
+```
+
+5 tests cover the browser key module, including that it derives exactly the viewing key the
+signer derives from the same seed phrase.
+
 ## Privacy and security
 
 - [`quest-web/PRIVACY.md`](quest-web/PRIVACY.md): what stays private, what is public on purpose,
@@ -195,7 +221,8 @@ padding, media encryption, private hunts and the no-secrets-in-the-file check.
 - Testnet only.
 - Never commit `signer/data/`, `signer/data-*/`, `devwallet/` or `quest-web/data/` (all
   ignored). They hold seeds or local state.
-- The signer never stores a pot's seed phrase, and no one logs claim request bodies.
+- The signer never stores a pot's seed phrase, and for a browser-made pot never receives it
+  until someone claims. No one logs claim request bodies.
 
 ## Licence
 

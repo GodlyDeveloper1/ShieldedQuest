@@ -8,10 +8,11 @@ No. Answers and guesses are processed in your browser and never sent. Only the l
 file is stored.
 
 **Can the site steal the prize?**
-The signer generates each pot and hands its seed phrase to the creator's browser without
-keeping it. A dishonest operator could change that code, which is why we list it as a trust
-assumption on the [Privacy](/docs/privacy) page. A future version will let your browser
-generate the pot itself.
+Not while a hunt is unsolved. The pot's seed phrase is made in the creator's browser, and the
+server is given only a viewing key that can't spend. Two things remain, both listed on the
+[Privacy](/docs/privacy) page: the site serves the code your browser runs, and a one-click
+claim sends the unlocked phrase through the site. A winner who doesn't want that can sweep the
+pot from their own wallet.
 
 **Why does each guess take a moment?**
 On purpose. Each guess runs Argon2id with 64 MiB of memory. It's barely noticeable for you and

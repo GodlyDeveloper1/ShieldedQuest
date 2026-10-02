@@ -34,6 +34,7 @@ const STRIP = [
   "Argon2id behind every guess",
   "One shielded transaction to claim",
   "Invite keys that never reach the server",
+  "Prize keys made in your browser",
   "No accounts. No emails. No tracking.",
 ];
 
@@ -155,7 +156,7 @@ export default async function Home() {
           </p>
           <div className="steps3">
             {[
-              { n: "01", icon: <IconMap />, t: "Hide", h: "Write the riddle", p: "Clues and answers, stage by stage. Your browser locks each stage with its answer and seals the prize key inside the last one." },
+              { n: "01", icon: <IconMap />, t: "Hide", h: "Write the riddle", p: "Clues and answers, stage by stage. Your browser makes the prize key, locks each stage with its answer and seals the key inside the last one." },
               { n: "02", icon: <IconEye />, t: "Prove", h: "Fund it in the open", p: "Send shielded ZEC to the hunt's pot. Its viewing key is public, so anyone can check the prize is really there." },
               { n: "03", icon: <IconKey />, t: "Solve", h: "Unlock and claim", p: "Each right answer opens the next clue. The last one unlocks the prize, claimed in a single shielded transaction." },
             ].map((s, i) => (

@@ -241,7 +241,7 @@ const INTENTS: Intent[] = [
     keys: ["create", "make a hunt", "my own", "host", "build", "new hunt", "start a hunt"],
     reply: () => ({
       text:
-        "Open \"Create a hunt\", pick a template or start blank, and write a clue and an answer for each stage. The site makes a prize pot, you save the backup, and your browser locks the hunt before anything is uploaded. Then send testnet ZEC to the pot address and share the link.",
+        "Open \"Create a hunt\", pick a template or start blank, and write a clue and an answer for each stage. Your browser makes the prize pot's key (the server only gets a viewing key), you save the backup, and your browser locks the hunt before anything is uploaded. Then send testnet ZEC to the pot address and share the link.",
       next: ["good-riddle", "media", "reclaim"],
     }),
   },
@@ -283,7 +283,7 @@ const INTENTS: Intent[] = [
     keys: ["get back", "reclaim", "refund", "nobody", "unsolved", "take back"],
     reply: () => ({
       text:
-        "Yes. On your hunt's page, open \"Made this hunt? Take the prize back\" and load the backup file you saved when creating it. That backup holds the pot's seed phrase, and the site never kept a copy, so keep it safe.",
+        "Yes. On your hunt's page, open \"Made this hunt? Take the prize back\" and load the backup file you saved when creating it. That backup holds the pot's seed phrase. It was made in your browser and the site never had a copy, so keep it safe.",
       next: ["create"],
     }),
   },

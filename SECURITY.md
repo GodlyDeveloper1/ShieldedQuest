@@ -10,7 +10,7 @@ To report a problem, open an issue or message @Diaguren_Labs.
 
 | Area | Result |
 |---|---|
-| Secrets in requests | Answers, guesses, stage keys and invite keys never leave the browser. Verified in browser tests that record every request. The only secret-bearing requests are pot creation (the reply carries the seed phrase once) and the claim (seed phrase + payout address). |
+| Secrets in requests | Answers, guesses, stage keys and invite keys never leave the browser. Verified in browser tests that record every request. The only secret-bearing request is the claim (seed phrase + payout address). Pot creation sends the pot's viewing key and seed fingerprint, not the seed phrase, which is made in the creator's browser. The server-made fallback (browsers without WebAssembly, and practice hunts) returns the phrase once. |
 | Secrets at rest | The server stores hunt files (ciphertext, public pot details), encrypted media, and the practice-hunt registry. The signer stores its own wallet seed and each pot's viewing key; never a pot's seed phrase. |
 | Logging | The web app logs no request bodies. The signer logs transaction ids and error text; error text never includes a seed phrase. |
 | Input validation | Hunt ids, media ids and pot ids are checked against strict patterns before touching the filesystem or the signer. Hunt files are validated and rebuilt from known fields only. Claim destinations must be shielded testnet addresses. |
@@ -18,7 +18,8 @@ To report a problem, open an issue or message @Diaguren_Labs.
 | Rendering | Clue text is rendered as text. Links must start with `http://` or `https://`, open in a new tab, and are never embedded. Media is shown from in-memory `blob:` URLs with its type restricted to image, video or audio. Docs are rendered from this repository's own Markdown files. |
 | Headers | `Content-Security-Policy`, `Referrer-Policy: no-referrer`, `X-Frame-Options: DENY`, `X-Content-Type-Options: nosniff`, `Permissions-Policy`, `Cross-Origin-Opener-Policy`. |
 | Network exposure | The signer and the web app bind to 127.0.0.1. In a hosted setup only the reverse proxy is public; the signer must never be. |
-| Dependencies | Small on purpose: `next`, `react`, `hash-wasm` (Argon2id), `qrcode`, `marked`, a bundled font. No analytics, CDNs or third-party scripts. |
+| Key derivation in the browser | The `pot-keys` module derives the pot's viewing key with the same `orchard`, `sapling-crypto` and `zip32` crates the signer uses. A test checks it against `zcash_keys`; a browser test checks the WebAssembly build against the native build. The signer rejects a viewing key that lacks a shielded pool, a malformed fingerprint, and a key that is already registered. The browser rejects a reply that names a different viewing key. |
+| Dependencies | Small on purpose: `next`, `react`, `hash-wasm` (Argon2id), `qrcode`, `marked`, a bundled font, and the site's own `pot-keys` module. No analytics, CDNs or third-party scripts. |
 
 ## Fixed in this review
 
@@ -42,12 +43,20 @@ To report a problem, open an issue or message @Diaguren_Labs.
    guess to another server with `fetch`, an image or a form.
 7. **Ignore rules.** `.env` files, build output and development screenshots are now ignored, as
    well as every signer data folder.
+8. **The server saw every pot's seed phrase at creation.** The signer made each pot and handed
+   the phrase to the creator's browser. The browser now makes the pot itself and the server is
+   given only the viewing key. This removed the largest trust assumption in the first design.
 
 ## Known limits (accepted for the hackathon)
 
 - **The site serves the code that runs in the browser.** A dishonest or compromised server
   could ship code that leaks answers or invite keys. The Content-Security-Policy narrows this;
   it doesn't remove it. Verifiable builds would.
+- **The pot address is derived by the signer.** The browser verifies the registered viewing
+  key, not the address it is told to fund. A creator can confirm a deposit landed in the pot by
+  checking the published viewing key with their own tool.
+- **`'wasm-unsafe-eval'` in the script policy.** Needed to run WebAssembly (Argon2id and the
+  key module). It allows compiling WebAssembly from the site's own files, not JavaScript `eval`.
 - **The claim trusts the signer.** A one-click claim sends the pot's seed phrase and the
   winner's address through the site. Winners who don't want that can sweep the pot themselves
   with the unlocked seed phrase.

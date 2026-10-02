@@ -30,9 +30,10 @@ is readable when the video is shrunk.
 **0:30–0:50 · Create.** Creator window, `/create`.
 - Type a weak final answer ("paris"): the crack-time meter turns orange and asks to confirm.
   > "Hunts can be guessed offline, so we show how fast a simple answer falls."
-- Strong answer, Continue, flash the backup step (blurred), Lock and publish. Keep one
-  "Locking stage 1 of 2…" moment.
-  > "Each answer is stretched with Argon2id in the browser. The server only gets ciphertext."
+- Strong answer, Continue. On the backup step keep the green "Made in your browser" box in
+  frame and the 24 words blurred. Lock and publish. Keep one "Locking stage 1 of 2…" moment.
+  > "The prize key is made here, in the browser. The server gets a viewing key and ciphertext,
+  > nothing it could spend or read."
 
 **0:50–1:05 · Private hunts.** Open the private hunt's address without the link: the locked page.
 Paste the invite link: the title and clue appear.

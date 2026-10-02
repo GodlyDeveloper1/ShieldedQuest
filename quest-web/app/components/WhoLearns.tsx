@@ -11,10 +11,10 @@ const ROWS: { who: string; learns: string[]; never: string[] }[] = [
     who: "This site",
     learns: [
       "Your internet address while you browse, and which hunt pages you open (used for rate limits in memory, never logged)",
-      "The pot\u2019s seed phrase once, when it makes the pot and hands it to the creator\u2019s browser",
+      "The pot\u2019s viewing key, when the creator\u2019s browser registers the pot",
       "On a one-click claim: the unlocked seed phrase and the address you paste",
     ],
-    never: ["Your guesses or answers", "How far you\u2019ve got", "A private hunt\u2019s title, first clue or invite key", "Your payout address, if you sweep the pot yourself"],
+    never: ["The prize key while a hunt is unsolved: it is made in the creator\u2019s browser", "Your guesses or answers", "How far you\u2019ve got", "A private hunt\u2019s title, first clue or invite key", "Your payout address, if you sweep the pot yourself"],
   },
   {
     who: "A block explorer, only if you click its link",

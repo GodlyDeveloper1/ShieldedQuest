@@ -1,14 +1,14 @@
 # How it works
 
 Three parts: your **browser** does the cryptography, the **web app** stores public hunt files,
-and the **signer** (the only part holding keys) makes and pays out prize pots on the Zcash
-testnet.
+and the **signer** watches and pays out prize pots on the Zcash testnet.
 
 ```
  your browser                    the site                 the signer              Zcash testnet
  ─────────────                   ────────                 ──────────              ─────────────
- answers → Argon2id   ─────────▶ stores the hunt file ──▶ makes the prize pot ──▶ shielded pool
+ answers → Argon2id   ─────────▶ stores the hunt file ──▶ watches the pot     ──▶ shielded pool
  stages ↔ AES-GCM                (ciphertext only)        sweeps it on a claim
+ makes the prize key             (viewing key only)
 ```
 
 ## 1. Locking a hunt
@@ -34,10 +34,14 @@ Answers are forgiving: case, accents, punctuation and extra spaces are ignored, 
 
 ## 2. The prize pot
 
-When you create a hunt, the signer makes a brand-new Zcash wallet just for the prize (the
-**pot**) and hands its 24-word seed phrase to your browser once. Your browser seals it into the
-last stage and gives you a backup. The signer keeps only the pot's **viewing key**, which can
-see the balance but can't spend.
+When you create a hunt, **your browser** makes a brand-new Zcash wallet just for the prize (the
+**pot**): a 24-word seed phrase that never leaves your device. It sends the signer only the
+pot's **viewing key**, which can see the balance but can't spend. Your browser then seals the
+phrase into the last stage and gives you a backup.
+
+The backup step tells you which side made the pot. Green, "Made in your browser", is the normal
+case. If your browser can't run the key module, the box is orange, "Made by the server": the
+signer makes the pot and hands you the phrase once.
 
 You fund the pot like any Zcash address. The viewing key is published on the hunt page, so
 anyone can confirm the prize is there.

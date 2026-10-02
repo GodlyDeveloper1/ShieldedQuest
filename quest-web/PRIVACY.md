@@ -9,7 +9,7 @@ do about it, and what we don't protect against. Testnet only.
 
 | Part | Runs where | Holds |
 |---|---|---|
-| Browser (creator / solver) | the person's device | answers, stage keys, the pot seed phrase once unlocked |
+| Browser (creator / solver) | the person's device | answers, stage keys; the pot seed phrase, which the creator's browser makes and a solver's browser unlocks |
 | Web app (Next.js) | the operator's machine | published hunt files (public by design) |
 | Signer (Rust) | the operator's machine, 127.0.0.1 only | its own wallet seed; pots' viewing keys; pot seeds only in memory during a claim |
 | lightwalletd + Zebra | the operator's machine (or a public server, see limits) | the public chain |
@@ -21,7 +21,7 @@ The short version, one row per party that could learn something.
 | Who | Can learn | Never learns |
 |---|---|---|
 | **Anyone reading the blockchain** | That a pot exists and what it holds (its viewing key is public); deposits into it and any memo on them; that it was emptied | Who won; where the prize went or how it was split; who funded it, if funded from a shielded balance |
-| **This site (web app and signer)** | Your IP address while you browse and which hunt pages you open (used for rate limits in memory, never logged); the pot's seed phrase once, when the signer makes the pot and hands it to the creator's browser; on a one-click claim, the unlocked seed phrase and the address you paste | Your guesses or answers; how far you've got; a private hunt's title, first clue or invite key; your payout address, if you sweep the pot yourself |
+| **This site (web app and signer)** | Your IP address while you browse and which hunt pages you open (used for rate limits in memory, never logged); the pot's viewing key when the creator's browser registers the pot; on a one-click claim, the unlocked seed phrase and the address you paste | The pot's seed phrase while the hunt is unsolved (it is made in the creator's browser; see the fallback under "Trust"); your guesses or answers; how far you've got; a private hunt's title, first clue or invite key; your payout address, if you sweep the pot yourself |
 | **The light-client server the signer uses** | The operator's IP address and every transaction the signer broadcasts | Anything about visitors: their browsers never contact it |
 | **A block explorer, only if you click its link** | Your IP address and which transaction you looked at | Anything from us: the site never contacts it |
 | **An app you share a link through** | The link, including a private hunt's invite key | Your progress or answers: they aren't in the link |
@@ -72,6 +72,18 @@ the server still sees for a private hunt: that it exists, its id, its stage
 count, its publication day, its pot (address, viewing key, balance) and the
 sizes of its encrypted parts.
 
+**The prize key.** The pot's 24-word seed phrase is generated in the creator's
+browser by the `pot-keys` module (Rust compiled to WebAssembly, served from this
+site, no third party). The browser derives the pot's viewing key and the seed's
+fingerprint (a one-way hash) and sends only those two values. The signer
+registers the pot from them and never receives the phrase. The create page shows
+a green "Made in your browser" box, and its Privacy X-ray lists the request with
+"seed phrase: not sent". We verified in a browser test, against a production
+build with the Content-Security-Policy on, that the phrase appears in no request
+and that the browser derives exactly the key the signer derives from the same
+phrase. From then on the phrase exists in the creator's backup file and,
+encrypted, inside the hunt's last stage.
+
 **The winner.** The claim sweeps the pot in one shielded transaction to the
 winner's shielded address. The pot's viewing key is public, so the sweep is
 built with `OvkPolicy::Discard`: viewers see the pot's balance drop to zero,
@@ -96,9 +108,18 @@ Transparent addresses are refused as claim destinations.
   The site sees both in transit (never logged or stored). Winners who don't
   want this can reveal the phrase and sweep the pot in their own wallet; nothing
   is sent to the site that way.
-- **Pot creation.** The signer generates the pot's seed phrase and hands it to
-  the creator's browser once. It does not keep it, but a malicious operator
-  could. A v2 would let the creator's browser generate the pot keys itself.
+- **Pot creation, fallback only.** Normally the creator's browser makes the pot
+  and the server never sees its seed phrase (see "The prize key"). If the browser
+  can't run WebAssembly, the signer makes the pot and hands the phrase over once;
+  it does not keep it, but a malicious operator could. The create page shows an
+  orange "Made by the server" box in that case, so the creator always knows
+  which happened. Practice hunts are made by the server too: it writes them, so
+  it knows their answers and keys by construction.
+- **The pot address comes from the server.** The browser checks that the server
+  registered the viewing key it sent, but the pot's address is derived by the
+  signer. A dishonest server could show a different address to fund. The prize
+  shown on the hunt page is read through the published viewing key, so a creator
+  can confirm their deposit arrived in the right pot with any Zcash tool.
 - **The operator sees metadata:** which IP created which hunt, which IP claimed
   it, and when. Use Tor or a VPN if that matters to you.
 

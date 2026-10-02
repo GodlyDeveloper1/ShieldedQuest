@@ -57,9 +57,10 @@ just not what it's about.
 
 ## Back up the pot
 
-After you continue, you'll see the prize pot's seed phrase once. **Download the backup file.**
-It contains the seed phrase and your answers. It's the only way to take the prize back if
-nobody solves the hunt. We don't keep a copy.
+After you continue, you'll see the prize pot's seed phrase once. A green box, "Made in your
+browser", means the words were created on your device and the server received only the pot's
+viewing key. **Download the backup file.** It contains the seed phrase and your answers. It's
+the only way to take the prize back if nobody solves the hunt. We never had a copy.
 
 ## Lock and publish
 
