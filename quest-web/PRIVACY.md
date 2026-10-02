@@ -14,6 +14,25 @@ do about it, and what we don't protect against. Testnet only.
 | Signer (Rust) | the operator's machine, 127.0.0.1 only | its own wallet seed; pots' viewing keys; pot seeds only in memory during a claim |
 | lightwalletd + Zebra | the operator's machine (or a public server, see limits) | the public chain |
 
+## Who learns what
+
+The short version, one row per party that could learn something.
+
+| Who | Can learn | Never learns |
+|---|---|---|
+| **Anyone reading the blockchain** | That a pot exists and what it holds (its viewing key is public); deposits into it and any memo on them; that it was emptied | Who won; where the prize went or how it was split; who funded it, if funded from a shielded balance |
+| **This site (web app and signer)** | Your IP address while you browse and which hunt pages you open (used for rate limits in memory, never logged); the pot's seed phrase once, when the signer makes the pot and hands it to the creator's browser; on a one-click claim, the unlocked seed phrase and the address you paste | Your guesses or answers; how far you've got; a private hunt's title, first clue or invite key; your payout address, if you sweep the pot yourself |
+| **The light-client server the signer uses** | The operator's IP address and every transaction the signer broadcasts | Anything about visitors: their browsers never contact it |
+| **A block explorer, only if you click its link** | Your IP address and which transaction you looked at | Anything from us: the site never contacts it |
+| **An app you share a link through** | The link, including a private hunt's invite key | Your progress or answers: they aren't in the link |
+| **Your network or internet provider** | That you visited this site (HTTPS hides which pages and what was sent) | Anything inside the connection |
+
+Wording used across the site follows this table. "Nobody can see who won" and
+"winners stay anonymous" mean nobody learns the winner's identity: the chain
+shows nothing about them, and there are no accounts, names or emails. On a
+one-click claim the site does see the fresh shielded address the winner pastes
+(second row), which names nobody; the sweep-it-yourself option avoids even that.
+
 ## What stays private
 
 **Answers and guesses.** Answers are turned into keys with Argon2id (64 MiB,
@@ -96,6 +115,8 @@ Transparent addresses are refused as claim destinations.
 - Loaded hunt files are checked for a KDF floor, so a tampered file can't make
   guessing cheap.
 - Claim request bodies are never logged by the web app or the signer.
+- The payout's transaction id comes with a copy button, and the explorer link
+  says what clicking it reveals (your IP and your interest in that transaction).
 - A **Content-Security-Policy** on every page: scripts, styles, fonts, images
   and requests may only come from the site itself (plus in-memory `data:` and
   `blob:` for QR codes and decrypted media). The browser enforces "this site

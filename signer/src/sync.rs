@@ -222,6 +222,13 @@ pub enum Command {
     CreatePot {
         reply: oneshot::Sender<anyhow::Result<NewPot>>,
     },
+    /// A pot whose keys were made in the creator's browser: only its viewing key
+    /// and seed fingerprint arrive here, never the seed phrase.
+    ImportPot {
+        viewing_key: String,
+        seed_fingerprint: String,
+        reply: oneshot::Sender<anyhow::Result<ImportedPot>>,
+    },
     PotInfo {
         pot_id: String,
         reply: oneshot::Sender<anyhow::Result<PotStatus>>,
@@ -239,6 +246,15 @@ pub enum Command {
 pub struct NewPot {
     pub pot_id: String,
     pub seed_phrase: String,
+    pub viewing_key: String,
+    pub address: String,
+    pub birthday_height: u32,
+}
+
+/// A browser-made pot, as registered here. No seed phrase: the signer never had it.
+#[derive(Serialize)]
+pub struct ImportedPot {
+    pub pot_id: String,
     pub viewing_key: String,
     pub address: String,
     pub birthday_height: u32,
@@ -305,6 +321,16 @@ pub fn spawn(config: SyncConfig, status: Arc<SyncStatus>) -> mpsc::UnboundedSend
                                     // A new account adds a scan range; until it is scanned the
                                     // wallet treats nothing as spendable. Sync now so the caller
                                     // can fund the pot straight away.
+                                    run_sync(&config, &cache, &status).await;
+                                }
+                                let _ = reply.send(result);
+                            }
+                            Some(Command::ImportPot { viewing_key, seed_fingerprint, reply }) => {
+                                let result = import_pot(&config, &viewing_key, &seed_fingerprint).await;
+                                if let Err(e) = &result {
+                                    eprintln!("import pot error: {e:#}");
+                                } else {
+                                    // Same as CreatePot: scan the new account's range now.
                                     run_sync(&config, &cache, &status).await;
                                 }
                                 let _ = reply.send(result);
@@ -700,10 +726,14 @@ fn save_pots(config: &SyncConfig, pots: &BTreeMap<String, PotRecord>) -> anyhow:
     Ok(())
 }
 
-/// Makes a fresh pot wallet. The signer registers it as a spending account
-/// (by seed fingerprint only, so it can sweep the pot later when a winner
-/// supplies the seed phrase) and returns the seed phrase once, without storing it.
-async fn create_pot(config: &SyncConfig) -> anyhow::Result<NewPot> {
+/// Registers a pot's viewing key as an account to watch (and later sweep, when a
+/// winner supplies the seed phrase). Only public data is stored: the viewing
+/// key, the pot's address and the seed's fingerprint (a one-way hash).
+async fn register_pot(
+    config: &SyncConfig,
+    ufvk: &UnifiedFullViewingKey,
+    fingerprint: SeedFingerprint,
+) -> anyhow::Result<(String, PotRecord)> {
     let mut client = connect(&config.server).await?;
     let tip = u32::try_from(
         client
@@ -713,20 +743,9 @@ async fn create_pot(config: &SyncConfig) -> anyhow::Result<NewPot> {
             .height,
     )?;
 
-    let mut entropy = [0u8; 32];
-    getrandom::getrandom(&mut entropy).map_err(|e| anyhow!("rng: {e}"))?;
-    let mnemonic =
-        bip39::Mnemonic::from_entropy(&entropy).map_err(|e| anyhow!("mnemonic: {e:?}"))?;
-    let seed = mnemonic.to_seed("");
-
-    let usk = UnifiedSpendingKey::from_seed(&TestNetwork, &seed, AccountId::ZERO)
-        .map_err(|e| anyhow!("deriving pot key: {e:?}"))?;
-    let ufvk = usk.to_unified_full_viewing_key();
     let (address, _) = ufvk
         .find_address(DiversifierIndex::from(0u32), UnifiedAddressRequest::AllAvailableKeys)
         .map_err(|e| anyhow!("deriving pot address: {e:?}"))?;
-    let fingerprint =
-        SeedFingerprint::from_seed(&seed).ok_or_else(|| anyhow!("bad seed length"))?;
 
     // Birthday just below the tip: the pot cannot have been funded before now.
     let birthday_height = tip.saturating_sub(1);
@@ -747,7 +766,7 @@ async fn create_pot(config: &SyncConfig) -> anyhow::Result<NewPot> {
     let mut db = open_db(config)?;
     db.import_account_ufvk(
         &format!("pot-{pot_id}"),
-        &ufvk,
+        ufvk,
         &birthday,
         AccountPurpose::Spending {
             derivation: Some(Zip32Derivation::new(fingerprint, AccountId::ZERO)),
@@ -764,14 +783,81 @@ async fn create_pot(config: &SyncConfig) -> anyhow::Result<NewPot> {
     let mut pots = load_pots(config);
     pots.insert(pot_id.clone(), record.clone());
     save_pots(config, &pots)?;
-    println!("created pot {pot_id} at height {birthday_height}");
+    Ok((pot_id, record))
+}
+
+/// Makes a fresh pot wallet here on the server (used for the practice hunts,
+/// and as a fallback for browsers that can't make the keys themselves). The
+/// seed phrase is returned once and not stored.
+async fn create_pot(config: &SyncConfig) -> anyhow::Result<NewPot> {
+    let mut entropy = [0u8; 32];
+    getrandom::getrandom(&mut entropy).map_err(|e| anyhow!("rng: {e}"))?;
+    let mnemonic =
+        bip39::Mnemonic::from_entropy(&entropy).map_err(|e| anyhow!("mnemonic: {e:?}"))?;
+    let seed = mnemonic.to_seed("");
+
+    let usk = UnifiedSpendingKey::from_seed(&TestNetwork, &seed, AccountId::ZERO)
+        .map_err(|e| anyhow!("deriving pot key: {e:?}"))?;
+    let ufvk = usk.to_unified_full_viewing_key();
+    let fingerprint =
+        SeedFingerprint::from_seed(&seed).ok_or_else(|| anyhow!("bad seed length"))?;
+
+    let (pot_id, record) = register_pot(config, &ufvk, fingerprint).await?;
+    println!("created pot {pot_id} at height {}", record.birthday_height);
 
     Ok(NewPot {
         pot_id,
         seed_phrase: mnemonic.to_string(),
         viewing_key: record.viewing_key,
         address: record.address,
-        birthday_height,
+        birthday_height: record.birthday_height,
+    })
+}
+
+/// Registers a pot whose keys were made in the creator's browser. The seed
+/// phrase never comes here: only the viewing key (which can watch the balance
+/// but not spend) and the seed's fingerprint. A later claim must present the
+/// seed phrase that derives exactly this viewing key.
+async fn import_pot(
+    config: &SyncConfig,
+    viewing_key: &str,
+    seed_fingerprint: &str,
+) -> anyhow::Result<ImportedPot> {
+    let ufvk = UnifiedFullViewingKey::decode(&TestNetwork, viewing_key.trim())
+        .map_err(|e| anyhow!("that is not a valid testnet viewing key: {e}"))?;
+    // The same shape as the pots made here: shielded keys for both pools, so a
+    // sweep can spend whatever the pot received.
+    if ufvk.orchard().is_none() || ufvk.sapling().is_none() {
+        return Err(anyhow!("the viewing key must include Orchard and Sapling keys"));
+    }
+
+    let fp = seed_fingerprint.trim();
+    if fp.len() != 64 || !fp.bytes().all(|b| b.is_ascii_hexdigit()) {
+        return Err(anyhow!("the seed fingerprint must be 64 hex characters"));
+    }
+    let mut fp_bytes = [0u8; 32];
+    for (i, byte) in fp_bytes.iter_mut().enumerate() {
+        *byte = u8::from_str_radix(&fp[i * 2..i * 2 + 2], 16)
+            .map_err(|_| anyhow!("the seed fingerprint must be 64 hex characters"))?;
+    }
+
+    // One pot per key: a second registration would shadow the first.
+    {
+        let db = open_db(config)?;
+        if db.get_account_for_ufvk(&ufvk)?.is_some() {
+            return Err(anyhow!("a pot with this viewing key already exists"));
+        }
+    }
+
+    let (pot_id, record) =
+        register_pot(config, &ufvk, SeedFingerprint::from_bytes(fp_bytes)).await?;
+    println!("imported browser-made pot {pot_id} at height {}", record.birthday_height);
+
+    Ok(ImportedPot {
+        pot_id,
+        viewing_key: record.viewing_key,
+        address: record.address,
+        birthday_height: record.birthday_height,
     })
 }
 

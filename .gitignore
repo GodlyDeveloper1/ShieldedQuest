@@ -1,5 +1,6 @@
 # Rust build output
 signer/target/
+pot-keys/target/
 
 # Wallet seeds, signer state, published hunts, uploads — never commit
 signer/data/

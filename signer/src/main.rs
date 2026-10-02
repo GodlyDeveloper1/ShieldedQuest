@@ -341,6 +341,33 @@ async fn create_pot(
     }
 }
 
+#[derive(Deserialize)]
+struct ImportPotBody {
+    viewing_key: String,
+    seed_fingerprint: String,
+}
+
+// Shielded Quest: register a pot whose keys were made in the creator's browser.
+// Only the viewing key and the seed's fingerprint arrive; the seed phrase never does.
+async fn import_pot(
+    State(s): State<Arc<AppState>>,
+    Json(body): Json<ImportPotBody>,
+) -> Result<Json<sync::ImportedPot>, (StatusCode, String)> {
+    let (reply_tx, reply_rx) = tokio::sync::oneshot::channel();
+    s.wallet_tx
+        .send(sync::Command::ImportPot {
+            viewing_key: body.viewing_key,
+            seed_fingerprint: body.seed_fingerprint,
+            reply: reply_tx,
+        })
+        .map_err(|_| (StatusCode::SERVICE_UNAVAILABLE, "wallet worker stopped".to_string()))?;
+    match reply_rx.await {
+        Ok(Ok(pot)) => Ok(Json(pot)),
+        Ok(Err(e)) => Err((StatusCode::BAD_REQUEST, format!("{e:#}"))),
+        Err(_) => Err((StatusCode::SERVICE_UNAVAILABLE, "wallet worker stopped".to_string())),
+    }
+}
+
 // Shielded Quest: a pot's verified balance, as seen through its viewing key.
 async fn get_pot(
     State(s): State<Arc<AppState>>,
@@ -424,6 +451,7 @@ async fn main() {
         .route("/payments", get(payments))
         .route("/send", post(send))
         .route("/pots", post(create_pot))
+        .route("/pots/import", post(import_pot))
         .route("/pots/{id}", get(get_pot))
         .route("/pots/{id}/claim", post(claim_pot))
         .with_state(state);

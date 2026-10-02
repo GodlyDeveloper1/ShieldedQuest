@@ -36,7 +36,8 @@ export default function SiteLayout({ children }: { children: React.ReactNode }) 
                 </span>
               </Link>
               <p className="muted small">
-                Puzzle-gated prizes on Zcash. Built for the Zecathon by Diaguren Labs. Testnet only.
+                Privacy first. Solve puzzles without being known. Puzzle-gated prizes on Zcash, built for the Zecathon
+                by Diaguren Labs. Testnet only.
               </p>
             </div>
             <div className="foot-links" data-reveal style={{ ["--i" as string]: 1 }}>

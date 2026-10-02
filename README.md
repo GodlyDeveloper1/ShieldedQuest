@@ -1,6 +1,6 @@
 # Shielded Quest
 
-**Treasure hunts with a shielded Zcash prize.** Hide ZEC behind a riddle. Solvers' guesses never
+**Privacy first. Solve puzzles without being known.** Treasure hunts with a shielded Zcash prize. Hide ZEC behind a riddle. Solvers' guesses never
 leave their browser, anyone can verify the prize is real, and nobody can see who won.
 
 Built solo by [@Diaguren_Labs](https://x.com/Diaguren_Labs) for the
@@ -20,9 +20,12 @@ one click to a shielded address, or sweeps the pot from their own wallet.
 | | |
 |---|---|
 | **Guesses stay on your device** | Every guess is stretched with Argon2id (64 MiB) and tried against the locked stage locally. Wrong or right, nothing is sent. |
-| **The server holds ciphertext** | Hunts are stored locked and padded to equal sizes. The site can't read answers, later clues or the prize key. |
+| **The server holds ciphertext** | Hunts are stored locked and padded to equal sizes. Nothing the site stores can reveal an answer, a later clue or the prize key. |
 | **The prize is verifiable** | Each pot's viewing key is published. Check the balance in any Zcash tool, without trusting the site. |
-| **The winner stays invisible** | The claim is one shielded transaction that discards the outgoing viewing key, so even the public viewing key can't see where the prize went. |
+| **The chain doesn't show the winner** | The claim is one shielded transaction that discards the outgoing viewing key, so even the public viewing key can't see where the prize went. |
+
+What the site itself can and can't learn is spelled out, party by party, in
+[`quest-web/PRIVACY.md`](quest-web/PRIVACY.md#who-learns-what).
 
 ## Features
 

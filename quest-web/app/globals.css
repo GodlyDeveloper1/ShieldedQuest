@@ -783,3 +783,31 @@ canvas.confetti { position: fixed; inset: 0; width: 100vw; height: 100vh; pointe
 .pin-sec.still { height: auto; padding: 64px 0; }
 .pin-sec.still .pin-in { position: static; height: auto; }
 .pin-sec.still .story-hint { display: none; }
+
+/* ---------- Landing: "Who learns what" ---------- */
+.who { margin-top: 28px; border: 1px solid var(--line); border-radius: 16px; background: var(--panel); overflow: hidden; }
+.who-head { padding: 20px 22px 14px; }
+.who-head h3 { margin: 0 0 4px; font-size: 19px; }
+.who-head p { margin: 0; }
+.who-row { display: grid; grid-template-columns: minmax(0, .8fr) minmax(0, 1.4fr) minmax(0, 1.2fr); gap: 18px; padding: 16px 22px; border-top: 1px solid var(--line); font-size: 13.5px; line-height: 1.55; }
+.who-cols { padding-block: 9px; font-size: 11px; font-weight: 700; letter-spacing: .12em; text-transform: uppercase; color: var(--muted); background: var(--panel-2); }
+.who-row ul { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; align-content: start; }
+.who-row li { position: relative; padding-left: 20px; color: #c9ced8; }
+.who-row li::before { position: absolute; left: 0; top: 0; font-weight: 800; }
+.who-yes li::before { content: "•"; color: var(--accent); }
+.who-no li::before { content: "✕"; color: var(--good); font-size: 11px; top: 2px; }
+@media (max-width: 760px) {
+  .who-cols { display: none; }
+  .who-row { grid-template-columns: 1fr; gap: 8px; }
+  .who-yes::before { content: "Can learn"; }
+  .who-no::before { content: "Never learns"; }
+  .who-yes::before, .who-no::before { font-size: 10.5px; font-weight: 700; letter-spacing: .12em; text-transform: uppercase; color: var(--muted); }
+}
+
+/* Payout transaction id */
+.txlink-actions { display: flex; flex-wrap: wrap; gap: 4px 16px; align-items: center; margin-top: 6px; }
+.txlink-note { display: block; margin-top: 6px; max-width: 60em; }
+.txlink a { margin-left: 0; }
+
+/* Hero tagline */
+.hero .tagline { font-size: clamp(17px, 2vw, 22px); font-weight: 700; color: var(--text); letter-spacing: -.01em; margin: 0 0 12px; }

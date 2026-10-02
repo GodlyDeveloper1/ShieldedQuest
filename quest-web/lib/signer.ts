@@ -46,6 +46,25 @@ export function createPot(): Promise<NewPot> {
   return call<NewPot>("/pots", { method: "POST" });
 }
 
+export interface ImportedPot {
+  pot_id: string;
+  viewing_key: string;
+  address: string;
+  birthday_height: number;
+}
+
+/**
+ * Registers a pot whose keys were made in the creator's browser. Only its
+ * viewing key and the seed's fingerprint are sent; the seed phrase never is.
+ */
+export function importPot(viewingKey: string, seedFingerprint: string): Promise<ImportedPot> {
+  return call<ImportedPot>("/pots/import", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ viewing_key: viewingKey, seed_fingerprint: seedFingerprint }),
+  });
+}
+
 export function potStatus(potId: string): Promise<PotStatus> {
   if (!/^[0-9a-f]{1,64}$/.test(potId)) throw new SignerError(400, "bad pot id");
   return call<PotStatus>(`/pots/${potId}`);

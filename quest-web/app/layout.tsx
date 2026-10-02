@@ -7,7 +7,7 @@ import Motion from "./components/Motion";
 export const metadata: Metadata = {
   title: { default: "Shielded Quest — puzzle-gated prizes, private by design", template: "%s · Shielded Quest" },
   description:
-    "Hide shielded Zcash behind a riddle. Guesses never leave the solver's browser, anyone can verify the prize, and nobody can see who won.",
+    "Hide shielded Zcash behind a riddle. Guesses never leave the solver's browser, anyone can verify the prize, and nobody can see who won. Privacy first: solve puzzles without being known.",
   referrer: "no-referrer",
 };
 

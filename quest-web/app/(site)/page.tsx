@@ -8,6 +8,7 @@ import Marquee from "@/app/components/Marquee";
 import GuessStory from "@/app/components/GuessStory";
 import GuessJourney from "@/app/components/GuessJourney";
 import PrivateStory from "@/app/components/PrivateStory";
+import WhoLearns from "@/app/components/WhoLearns";
 import GuideBot from "@/app/components/GuideBot";
 import {
   IconDevice,
@@ -28,10 +29,11 @@ export const dynamic = "force-dynamic";
 const STRIP = [
   "Guesses never leave your browser",
   "Prizes verified by viewing key",
-  "Winners stay invisible",
+  "Winners stay anonymous",
+  "Privacy first. Solve without being known.",
   "Argon2id behind every guess",
   "One shielded transaction to claim",
-  "Invite-only hunts the server can't read",
+  "Invite keys that never reach the server",
   "No accounts. No emails. No tracking.",
 ];
 
@@ -56,6 +58,9 @@ export default async function Home() {
                 <Scramble text="private by design." delay={500} />
               </em>
             </h1>
+            <p className="tagline" data-reveal style={{ ["--i" as string]: 2 }}>
+              Privacy first. Solve puzzles without being known.
+            </p>
             <p className="sub" data-reveal style={{ ["--i" as string]: 2 }}>
               Hide shielded ZEC behind a riddle. Guesses never leave the solver&apos;s browser, anyone can verify the
               prize is real, and nobody can see who won.
@@ -144,7 +149,7 @@ export default async function Home() {
           <p className="kicker" data-reveal>
             How it works
           </p>
-          <h2 data-reveal>Three steps. Zero trust required.</h2>
+          <h2 data-reveal>Three steps. Your answers never leave your browser.</h2>
           <p className="intro" data-reveal>
             The cryptography happens in your browser; the prize lives in Zcash&apos;s shielded pool.
           </p>
@@ -183,9 +188,9 @@ export default async function Home() {
           <div className="grid4">
             {[
               { icon: <IconDevice />, h: "Guesses stay on your device", p: "Every guess is checked by trying to decrypt the stage locally. Wrong or right, nothing is sent." },
-              { icon: <IconServer />, h: "The server holds ciphertext", p: "Hunts are stored locked and padded to equal sizes. The site can't read answers or the prize key." },
+              { icon: <IconServer />, h: "The server holds ciphertext", p: "Hunts are stored locked and padded to equal sizes. Nothing the site stores can reveal an answer, a later clue or the prize key." },
               { icon: <IconShield />, h: "The prize is verifiable", p: "The pot's viewing key is published. Check the balance in any Zcash wallet, without trusting us." },
-              { icon: <IconGhost />, h: "The winner stays invisible", p: "The claim is built so even the public viewing key can't see where the prize went or how much was sent." },
+              { icon: <IconGhost />, h: "The chain doesn't show the winner", p: "The payout is one shielded transaction, built so even the public viewing key can't see where the prize went or how much was sent." },
             ].map((f, i) => (
               <div key={f.h} className="feature" data-reveal style={{ ["--i" as string]: i }}>
                 <div className="icon">{f.icon}</div>
@@ -194,6 +199,7 @@ export default async function Home() {
               </div>
             ))}
           </div>
+          <WhoLearns />
           <p className="small" style={{ marginTop: 18 }} data-reveal>
             <Link href="/docs/privacy">Read the full threat model →</Link>
           </p>

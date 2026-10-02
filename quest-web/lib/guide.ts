@@ -84,7 +84,7 @@ const INTENTS: Intent[] = [
     where: ["hunt"],
     reply: () => ({
       text:
-        "I can't, and neither can anyone else. The answers aren't stored anywhere: each one is the key that decrypts the next clue, so the only way in is to find it.\n\nWhat I can do is read the clue with you, point out patterns, and run the classic puzzle tools.",
+        "I can't. The answers aren't stored anywhere, not here and not on the server: each one is the key that decrypts the next clue, so the only way in is to find it.\n\nWhat I can do is read the clue with you, point out patterns, and run the classic puzzle tools.",
       next: ["analyse", "stuck", "tools"],
     }),
   },
@@ -172,7 +172,7 @@ const INTENTS: Intent[] = [
     keys: ["who won", "winner", "anonymous", "see who", "identity", "trace"],
     reply: () => ({
       text:
-        "No. The prize leaves the pot in a shielded transaction built so that even the pot's public viewing key can't see where it went. Anyone can check that the pot was emptied, but not who received it or where.",
+        "Not from the blockchain. The prize leaves the pot in a shielded transaction built so that even the pot's public viewing key can't see where it went. Anyone can check that the pot was emptied, but not who received it.\n\nOne thing to know: with the one-click claim, this site sees the address you paste so it can send the prize (it isn't kept). Sweep the pot yourself with the unlocked seed phrase and the site never learns it.",
       next: ["verify", "private"],
     }),
   },
@@ -367,7 +367,7 @@ export function replyFor(id: string, c: GuideContext): Reply {
 export function greeting(c: GuideContext): Reply {
   if (c.page === "hunt" && !c.solved && c.stage)
     return {
-      text: `Hi! I'm the Quest Guide. You're on clue ${c.stage} of ${c.stageCount}. I can't see the answers (nobody can), but I can read the clue with you and run puzzle tools. Everything here stays in your browser.`,
+      text: `Hi! I'm the Quest Guide. You're on clue ${c.stage} of ${c.stageCount}. I can't see the answers (they aren't stored anywhere), but I can read the clue with you and run puzzle tools. Everything here stays in your browser.`,
     };
   if (c.page === "create") return { text: "Hi! I'm the Quest Guide. Ask me anything about making a hunt." };
   return { text: "Hi! I'm the Quest Guide. Ask me about Shielded Quest, or pick a question below." };

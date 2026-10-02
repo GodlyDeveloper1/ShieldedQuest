@@ -22,7 +22,7 @@ export default function PrivateStory() {
           </div>
           <div>
             <p className="kicker">Invite-only</p>
-            <h2>Private hunts. Not even we can read them.</h2>
+            <h2>Private hunts. The key never reaches our server.</h2>
             <p className="intro">
               Tick one box and your hunt disappears from every list. Its title and first clue are encrypted with a key
               that exists only in the invite link, after the <span className="mono">#</span>. Browsers never send that

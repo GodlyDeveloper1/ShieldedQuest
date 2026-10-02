@@ -22,7 +22,7 @@ const STEPS = [
   { icon: <IconMap />, title: "Solve two easy clues", text: "The answers are printed in the hints. It's a practice hunt; the point is to see how it works." },
   { icon: <IconDevice />, title: "Watch your browser work", text: "Each answer is stretched with Argon2id and checked right here. Nothing you type is sent." },
   { icon: <IconKey />, title: "Claim the prize", text: "Paste a shielded testnet address, or, with no wallet, send it back to the practice pool. Either way it's a real shielded transaction." },
-  { icon: <IconEye />, title: "Check it yourself", text: "See the prize through the pot's public viewing key, and see that the winner stays hidden." },
+  { icon: <IconEye />, title: "Check it yourself", text: "See the prize through the pot's public viewing key, and see that it can't show where the prize went." },
 ];
 
 export default async function DemoPage() {

@@ -59,8 +59,9 @@ The final answer reveals the pot's seed phrase. Then either:
   Nothing is sent to the site.
 
 The one-click claim is built so the published viewing key **can't** decrypt where the prize
-went (the sweep discards its outgoing viewing key). Everyone sees the pot empty; nobody sees
-the winner.
+went (the sweep discards its outgoing viewing key). Everyone sees the pot empty; nobody
+reading the chain sees the winner. With the one-click claim the site sees the address you
+paste, to send the prize; if you sweep it yourself, it doesn't.
 
 ## Built with
 

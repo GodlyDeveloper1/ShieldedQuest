@@ -33,8 +33,8 @@ const STEPS = [
   },
   {
     icon: <IconServer />,
-    title: "The server saw nothing",
-    body: "No guess, no result, no progress. All it ever held was scrambled data it can't open.",
+    title: "The server saw none of it",
+    body: "No guess, no result, no progress. It served the locked hunt file, and that's all it knows.",
   },
   {
     icon: <IconShield />,
@@ -43,8 +43,8 @@ const STEPS = [
   },
   {
     icon: <IconGhost />,
-    title: "Nobody knows who won",
-    body: "Anyone can check the pot was emptied. Nobody can see where the prize went or how much was sent.",
+    title: "The chain doesn't show who won",
+    body: "Anyone can check the pot was emptied. Nobody reading the blockchain can see where the prize went or how much. Sweep the pot yourself and this site never learns your address either.",
   },
 ];
 const N = STEPS.length;

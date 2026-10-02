@@ -1,0 +1,37 @@
+[package]
+name = "pot-keys"
+version = "0.1.0"
+edition = "2021"
+description = "Shielded Quest: makes a prize pot's keys in the creator's browser (WebAssembly), so the server never sees the seed phrase"
+license = "MIT"
+publish = false
+
+[lib]
+crate-type = ["cdylib", "rlib"]
+
+# Pure Rust only, so it compiles to WebAssembly with nothing but the Rust
+# toolchain (no C compiler). The key crates are pinned to the versions the signer
+# uses, so both derive exactly the same viewing key from a seed phrase.
+[dependencies]
+wasm-bindgen = "0.2"
+bip39 = "3"
+getrandom = { version = "0.2", features = ["js"] }
+orchard = { version = "=0.15.5", default-features = false, features = ["std"] }
+sapling = { package = "sapling-crypto", version = "=0.7.0", default-features = false, features = ["std"] }
+zcash_address = "=0.13.0"
+zcash_protocol = "0.10"
+zip32 = "=0.2.1"
+
+# Tests compare against the signer's own key library. Not part of the WebAssembly build.
+[dev-dependencies]
+zcash_keys = { version = "=0.16.1", features = ["orchard", "sapling"] }
+
+[profile.release]
+opt-level = "s"
+lto = true
+codegen-units = 1
+panic = "abort"
+
+# wasm-pack: skip the optional wasm-opt download; the build doesn't need it.
+[package.metadata.wasm-pack.profile.release]
+wasm-opt = false

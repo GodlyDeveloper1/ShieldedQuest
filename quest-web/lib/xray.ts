@@ -154,9 +154,19 @@ function describe(method: string, path: string, body: unknown): Described {
     };
   }
   if (method === "POST" && path === "/api/pots") {
+    if (json && typeof json.viewing_key === "string")
+      return {
+        title: "Register the prize pot",
+        detail: "The pot's keys were made in your browser. This sends only what the server needs to show the balance. The seed phrase isn't in it.",
+        fields: [
+          { k: "viewing_key", v: short(json.viewing_key, 34), note: "can see the pot's balance, can't spend it" },
+          { k: "seed_fingerprint", v: short(String(json.seed_fingerprint ?? ""), 22), note: "a one-way hash of the seed" },
+          { k: "seed phrase", v: "not sent", note: "stays in your browser" },
+        ],
+      };
     return {
-      title: "New prize pot",
-      detail: "Asks the signer for a fresh Zcash account. The request is empty; the reply has the pot's address, viewing key and seed phrase. The signer doesn't keep the seed phrase.",
+      title: "New prize pot (made by the server)",
+      detail: "Your browser couldn't make the pot's keys, so it asks the signer for a fresh Zcash account. The request is empty; the reply has the pot's address, viewing key and seed phrase. The signer doesn't keep the seed phrase.",
     };
   }
   if (method === "POST" && path === "/api/media") {

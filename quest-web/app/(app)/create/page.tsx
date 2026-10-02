@@ -18,6 +18,7 @@ import {
   type PotRef,
 } from "quest-crypto";
 import ShareHunt from "@/app/components/ShareHunt";
+import { makeBrowserPot } from "@/lib/pot-keys";
 import AddToPrize from "@/app/components/AddToPrize";
 import MediaPicker from "@/app/components/MediaPicker";
 import { useConfirm } from "@/app/components/ConfirmDialog";
@@ -160,6 +161,8 @@ export default function CreatePage() {
   const [isPrivate, setIsPrivate] = useState(false);
   const [invite, setInvite] = useState<string | null>(null);
   const [linkCopied, setLinkCopied] = useState(false);
+  // Who made the pot's keys: this browser (the server never saw the seed phrase) or, as a fallback, the server.
+  const [potMadeBy, setPotMadeBy] = useState<"browser" | "server" | null>(null);
 
   // Simple final answers are allowed, but the creator has to confirm they understand the risk.
   const finalAnswer = stages[stages.length - 1]?.answer ?? "";
@@ -191,10 +194,32 @@ export default function CreatePage() {
     setError(null);
     setBusy("Creating the prize pot…");
     try {
-      const res = await fetch("/api/pots", { method: "POST" });
-      const body = await res.json();
-      if (!res.ok) throw new Error(body.error ?? "couldn't create a pot");
-      setPot({ pot_id: body.pot_id, address: body.address, viewing_key: body.viewing_key, seed_phrase: body.seed_phrase });
+      // Make the pot's keys here, so the server never sees the seed phrase. Only
+      // the viewing key and the seed's fingerprint are sent.
+      const mine = await makeBrowserPot();
+      if (mine) {
+        recordLocal(
+          "Prize pot keys made in your browser",
+          "The 24-word seed phrase was created here and stays here. Only the pot's viewing key (which can see the balance, not spend it) goes to the server.",
+        );
+        const res = await fetch("/api/pots", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ viewing_key: mine.viewingKey, seed_fingerprint: mine.seedFingerprint }),
+        });
+        const body = await res.json();
+        if (!res.ok) throw new Error(body.error ?? "couldn't register the pot");
+        if (body.viewing_key !== mine.viewingKey) throw new Error("the server registered a different pot than the one made here");
+        setPot({ pot_id: body.pot_id, address: body.address, viewing_key: body.viewing_key, seed_phrase: mine.seedPhrase });
+        setPotMadeBy("browser");
+      } else {
+        // This browser can't run the key module: the signer makes the pot and hands the phrase over once.
+        const res = await fetch("/api/pots", { method: "POST" });
+        const body = await res.json();
+        if (!res.ok) throw new Error(body.error ?? "couldn't create a pot");
+        setPot({ pot_id: body.pot_id, address: body.address, viewing_key: body.viewing_key, seed_phrase: body.seed_phrase });
+        setPotMadeBy("server");
+      }
       setInvite(isPrivate ? inviteToString(newInviteKey()) : null);
       setStep("backup");
     } catch (e) {
@@ -501,6 +526,18 @@ export default function CreatePage() {
             backup (it also lists your answers): it&apos;s the only way to take the prize back if nobody solves the hunt.
             Neither this site nor the signer keeps a copy.
           </p>
+          {potMadeBy === "browser" ? (
+            <div className="card ok made-here">
+              <strong>Made in your browser.</strong> These words were created on this device and have not been sent
+              anywhere. The server only received the pot&apos;s viewing key, which can see the balance but can&apos;t spend
+              it.
+            </div>
+          ) : (
+            <div className="card warn">
+              <strong>Made by the server.</strong> Your browser couldn&apos;t make the pot&apos;s keys itself, so the signer
+              made them and passed the words here once. It doesn&apos;t keep them.
+            </div>
+          )}
           <div className="card danger">
             <strong>Anyone who sees these words can take the prize.</strong> Don&apos;t screenshot or paste them into
             chats.
