@@ -5,6 +5,8 @@
 
 FROM rust:1-trixie AS build
 WORKDIR /src
+# Keep trying through a flaky connection instead of giving up after three attempts.
+ENV CARGO_NET_RETRY=10
 COPY Cargo.toml Cargo.lock ./
 COPY src ./src
 RUN --mount=type=cache,target=/usr/local/cargo/registry \
