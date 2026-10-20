@@ -25,7 +25,12 @@ use std::{
 
 use anyhow::{anyhow, Context};
 use async_trait::async_trait;
-use rand::rngs::OsRng;
+use rand::{rand_core::UnwrapErr, rngs::SysRng};
+/// The operating system's random numbers, as the wallet database and the transaction builder take them.
+type OsRng = UnwrapErr<SysRng>;
+fn os_rng() -> OsRng {
+    UnwrapErr(SysRng)
+}
 use secrecy::SecretVec;
 use tokio::sync::{mpsc, oneshot};
 use tonic::{
@@ -297,9 +302,16 @@ pub fn spawn(config: SyncConfig, status: Arc<SyncStatus>) -> mpsc::UnboundedSend
             rt.block_on(async move {
                 let cache = MemoryBlockCache::default();
                 run_sync(&config, &cache, &status).await;
+                // A ticker, not a sleep inside the loop: a sleep would start again
+                // every time a request arrived, so a steady stream of requests
+                // (a page polling every few seconds) would stop the wallet from
+                // ever scanning a new block.
+                let mut ticker = tokio::time::interval(SYNC_INTERVAL);
+                ticker.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Delay);
+                ticker.tick().await; // the first tick is immediate, and we have just synced
                 loop {
                     tokio::select! {
-                        _ = tokio::time::sleep(SYNC_INTERVAL) => {
+                        _ = ticker.tick() => {
                             run_sync(&config, &cache, &status).await;
                         }
                         cmd = rx.recv() => match cmd {
@@ -405,7 +417,7 @@ async fn connect(server: &str) -> anyhow::Result<CompactTxStreamerClient<Channel
 }
 
 fn open_db(config: &SyncConfig) -> anyhow::Result<Db> {
-    let mut db = WalletDb::for_path(&config.db_path, TestNetwork, SystemClock, OsRng)?;
+    let mut db = WalletDb::for_path(&config.db_path, TestNetwork, SystemClock, os_rng())?;
     init_wallet_db(&mut db, None).map_err(|e| anyhow!("init wallet db: {e:?}"))?;
     Ok(db)
 }
@@ -592,6 +604,8 @@ async fn send_once(config: &SyncConfig, request: &SendRequest) -> anyhow::Result
     let txids = create_proposed_transactions(
         &mut db,
         &TestNetwork,
+        &SystemClock,
+        &mut os_rng(),
         &prover,
         &prover,
         &SpendingKeys::from_unified_spending_key(usk),
@@ -747,11 +761,20 @@ async fn register_pot(
         .find_address(DiversifierIndex::from(0u32), UnifiedAddressRequest::AllAvailableKeys)
         .map_err(|e| anyhow!("deriving pot address: {e:?}"))?;
 
-    // Birthday just below the tip: the pot cannot have been funded before now.
-    let birthday_height = tip.saturating_sub(1);
+    let mut db = open_db(config)?;
+
+    // Birthday: the block just after the last one this wallet has scanned. The
+    // pot cannot have been funded before now, so nothing is missed. It must not
+    // be lower: since the NU7 libraries, a birthday below the scanned height
+    // makes the wallet rewind its note commitment trees to it, and that rewind
+    // can fail ("retains checkpoints both above and below height ...") when no
+    // checkpoint sits at the height it needs.
+    let scanned = db.block_max_scanned()?.map(|m| u32::from(m.block_height()));
+    let prior = scanned.map_or(tip.saturating_sub(2), |s| s.min(tip));
+    let birthday_height = prior + 1;
     let tree_state = client
         .get_tree_state(service::BlockId {
-            height: u64::from(birthday_height.saturating_sub(1)),
+            height: u64::from(prior),
             ..Default::default()
         })
         .await?
@@ -763,7 +786,6 @@ async fn register_pot(
     getrandom::getrandom(&mut id_bytes).map_err(|e| anyhow!("rng: {e}"))?;
     let pot_id: String = id_bytes.iter().map(|b| format!("{b:02x}")).collect();
 
-    let mut db = open_db(config)?;
     db.import_account_ufvk(
         &format!("pot-{pot_id}"),
         ufvk,
@@ -775,7 +797,7 @@ async fn register_pot(
     )?;
 
     let record = PotRecord {
-        viewing_key: ufvk.encode(&TestNetwork),
+        viewing_key: ufvk.encode(&TestNetwork).map_err(|e| anyhow!("encoding the viewing key: {e:?}"))?,
         address: address.encode(&TestNetwork),
         birthday_height,
         claimed_txid: None,
@@ -949,7 +971,7 @@ async fn claim_pot(
     let usk = UnifiedSpendingKey::from_seed(&TestNetwork, &seed, AccountId::ZERO)
         .map_err(|e| anyhow!("deriving pot key: {e:?}"))?;
     let ufvk = usk.to_unified_full_viewing_key();
-    if ufvk.encode(&TestNetwork) != record.viewing_key {
+    if ufvk.encode(&TestNetwork).map_err(|e| anyhow!("encoding the viewing key: {e:?}"))? != record.viewing_key {
         return Err(anyhow!("the seed phrase does not match this pot"));
     }
 
@@ -992,6 +1014,8 @@ async fn claim_pot(
     let txids = create_proposed_transactions(
         &mut db,
         &TestNetwork,
+        &SystemClock,
+        &mut os_rng(),
         &prover,
         &prover,
         &SpendingKeys::from_unified_spending_key(usk),

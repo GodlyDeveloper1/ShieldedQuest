@@ -77,8 +77,12 @@ struct ViewingKey {
 }
 
 // The viewing key can see incoming payments but cannot spend.
-async fn viewing_key(State(s): State<Arc<AppState>>) -> Json<ViewingKey> {
-    Json(ViewingKey { ufvk: s.ufvk.encode(&TestNetwork) })
+async fn viewing_key(State(s): State<Arc<AppState>>) -> Result<Json<ViewingKey>, (StatusCode, String)> {
+    let ufvk = s
+        .ufvk
+        .encode(&TestNetwork)
+        .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, format!("encoding the viewing key: {e:?}")))?;
+    Ok(Json(ViewingKey { ufvk }))
 }
 
 #[derive(Serialize)]
