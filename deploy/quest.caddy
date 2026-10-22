@@ -1,0 +1,11 @@
+# Shielded Quest at shieldedquest.<the Dark Vault domain>, served by Dark Vault's Caddy.
+# Copy this file into /opt/darkvault/deploy/sites/ on the server (see deploy/hosted.yml).
+shieldedquest.{$DOMAIN} {
+	encode zstd gzip
+	# The web app joins Caddy's network under this name. Nothing logs visitors.
+	reverse_proxy quest-web:3000
+	header {
+		-Server
+		Strict-Transport-Security "max-age=31536000"
+	}
+}

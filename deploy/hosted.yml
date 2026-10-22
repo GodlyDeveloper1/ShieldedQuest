@@ -1,0 +1,25 @@
+# Hosting Shielded Quest on a server that already runs Dark Vault behind Caddy
+# (Dark Vault's deploy/setup.sh). Caddy serves it at shieldedquest.<that domain>:
+#
+#   cd /opt/shieldedquest
+#   docker compose -f docker-compose.yml -f deploy/hosted.yml up -d --build
+#   cp deploy/quest.caddy /opt/darkvault/deploy/sites/
+#   (then restart Dark Vault's Caddy)
+#
+# The web app joins Caddy's network as "quest-web". The signer stays on its own
+# private network with the web app: nothing else can reach it.
+services:
+  web:
+    environment:
+      # Behind Caddy: rate limits per visitor, not one limit shared by everyone.
+      TRUST_PROXY: "1"
+    networks:
+      proxy:
+        aliases:
+          - quest-web
+
+networks:
+  proxy:
+    external: true
+    # Dark Vault's "front" network. Set PROXY_NETWORK if yours is called something else.
+    name: ${PROXY_NETWORK:-darkvault_front}
