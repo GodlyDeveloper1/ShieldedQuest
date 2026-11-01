@@ -23,7 +23,6 @@ use std::{
 use zcash_protocol::memo::{Memo, MemoBytes};
 use zcash_protocol::TxId;
 use zcash_keys::keys::{UnifiedAddressRequest, UnifiedFullViewingKey, UnifiedSpendingKey};
-use zcash_protocol::consensus::TestNetwork;
 use zip32::{AccountId, DiversifierIndex};
 
 #[derive(Serialize, Deserialize)]
@@ -56,7 +55,7 @@ fn load_or_create_wallet(path: &PathBuf) -> WalletFile {
     let mnemonic = bip39::Mnemonic::from_entropy(&entropy).expect("mnemonic");
     let wallet = WalletFile { mnemonic: mnemonic.to_string(), next_index: 0 };
     save_wallet(path, &wallet);
-    println!("created new testnet wallet at {}", path.display());
+    println!("created new {} wallet at {}", if sync::is_mainnet() { "MAINNET" } else { "testnet" }, path.display());
     wallet
 }
 
@@ -80,7 +79,7 @@ struct ViewingKey {
 async fn viewing_key(State(s): State<Arc<AppState>>) -> Result<Json<ViewingKey>, (StatusCode, String)> {
     let ufvk = s
         .ufvk
-        .encode(&TestNetwork)
+        .encode(&sync::network())
         .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, format!("encoding the viewing key: {e:?}")))?;
     Ok(Json(ViewingKey { ufvk }))
 }
@@ -102,7 +101,7 @@ async fn new_address(State(s): State<Arc<AppState>>) -> Json<NewAddress> {
     let used = u32::try_from(idx).expect("diversifier index fits in u32");
     w.next_index = used + 1;
     save_wallet(&s.path, &w);
-    Json(NewAddress { address: ua.encode(&TestNetwork), diversifier_index: used })
+    Json(NewAddress { address: ua.encode(&sync::network()), diversifier_index: used })
 }
 
 #[derive(Serialize)]
@@ -418,12 +417,30 @@ async fn claim_pot(
 
 #[tokio::main]
 async fn main() {
-    let path = data_dir().join("wallet.json");
+    // A data folder belongs to one network: never mix testnet and mainnet keys.
+    let dir = data_dir();
+    let want = if sync::is_mainnet() { "main" } else { "test" };
+    let marker = dir.join("network");
+    match fs::read_to_string(&marker) {
+        Ok(found) if found.trim() != want => panic!(
+            "{} holds a {}net wallet but ZCASH_NETWORK says {}net: use another SIGNER_DATA_DIR",
+            dir.display(), found.trim(), want
+        ),
+        Ok(_) => {}
+        Err(_) => {
+            let _ = fs::create_dir_all(&dir);
+            if dir.join("wallet.json").exists() && want == "main" {
+                panic!("{} already holds a wallet from before networks were recorded (testnet): use another SIGNER_DATA_DIR for mainnet", dir.display());
+            }
+            fs::write(&marker, want).expect("could not write the network marker");
+        }
+    }
+    let path = dir.join("wallet.json");
     let wallet = load_or_create_wallet(&path);
 
     let mnemonic = bip39::Mnemonic::parse(&wallet.mnemonic).expect("stored mnemonic");
     let seed = mnemonic.to_seed("");
-    let usk = UnifiedSpendingKey::from_seed(&TestNetwork, &seed, AccountId::ZERO)
+    let usk = UnifiedSpendingKey::from_seed(&sync::network(), &seed, AccountId::ZERO)
         .expect("spending key");
     let ufvk = usk.to_unified_full_viewing_key();
 
@@ -431,7 +448,9 @@ async fn main() {
     let db_path = data_dir().join("wallet.sqlite");
     let sync_status = Arc::new(sync::SyncStatus::default());
     let server = std::env::var("LIGHTWALLETD_URL")
-        .unwrap_or_else(|_| "https://testnet.zec.rocks:443".to_string());
+        .ok()
+        .filter(|s| !s.trim().is_empty())
+        .unwrap_or_else(|| if sync::is_mainnet() { "https://zec.rocks:443" } else { "https://testnet.zec.rocks:443" }.to_string());
     let birthday = std::env::var("SIGNER_BIRTHDAY").ok().and_then(|s| s.parse().ok());
     println!("syncing against {server}");
     let wallet_tx = sync::spawn(

@@ -68,7 +68,7 @@ use zcash_keys::keys::{UnifiedAddressRequest, UnifiedFullViewingKey, UnifiedSpen
 use zcash_primitives::transaction::{fees::zip317, Transaction, TxId};
 use zcash_proofs::prover::LocalTxProver;
 use zcash_protocol::{
-    consensus::{BlockHeight, BranchId, TestNetwork},
+    consensus::{BlockHeight, BranchId, Network},
     memo::{Memo, MemoBytes},
     value::Zatoshis,
     ShieldedPool,
@@ -81,7 +81,21 @@ use zip321::{Payment, TransactionRequest};
 const SYNC_INTERVAL: Duration = Duration::from_secs(30);
 const BATCH_SIZE: u32 = 1_000;
 
-type Db = WalletDb<rusqlite::Connection, TestNetwork, SystemClock, OsRng>;
+type Db = WalletDb<rusqlite::Connection, Network, SystemClock, OsRng>;
+
+/// The Zcash network this signer runs on: testnet unless ZCASH_NETWORK=main.
+pub fn network() -> Network {
+    static NETWORK: std::sync::OnceLock<Network> = std::sync::OnceLock::new();
+    *NETWORK.get_or_init(|| match std::env::var("ZCASH_NETWORK").as_deref().map(str::trim) {
+        Ok("main") | Ok("mainnet") => Network::MainNetwork,
+        _ => Network::TestNetwork,
+    })
+}
+
+/// True on mainnet, where real money moves.
+pub fn is_mainnet() -> bool {
+    matches!(network(), Network::MainNetwork)
+}
 
 /// The concrete error type of the transfer APIs for a SQLite wallet
 /// (same instantiation ECC's zcash-devtool uses).
@@ -417,7 +431,7 @@ async fn connect(server: &str) -> anyhow::Result<CompactTxStreamerClient<Channel
 }
 
 fn open_db(config: &SyncConfig) -> anyhow::Result<Db> {
-    let mut db = WalletDb::for_path(&config.db_path, TestNetwork, SystemClock, os_rng())?;
+    let mut db = WalletDb::for_path(&config.db_path, network(), SystemClock, os_rng())?;
     init_wallet_db(&mut db, None).map_err(|e| anyhow!("init wallet db: {e:?}"))?;
     Ok(db)
 }
@@ -459,7 +473,7 @@ async fn sync_once(
         println!("wallet db created; scanning from height {birthday_height}");
     }
 
-    zcash_client_backend::sync::run(&mut client, &TestNetwork, cache, &mut db, BATCH_SIZE)
+    zcash_client_backend::sync::run(&mut client, &network(), cache, &mut db, BATCH_SIZE)
         .await
         .map_err(|e| anyhow!("{e}"))?;
 
@@ -505,7 +519,7 @@ async fn fetch_transaction(
         .then(|| BlockHeight::from_u32(raw.height as u32));
     let tx = Transaction::read(
         &raw.data[..],
-        BranchId::for_height(&TestNetwork, mined_height.unwrap_or(chain_tip)),
+        BranchId::for_height(&network(), mined_height.unwrap_or(chain_tip)),
     )?;
     Ok(Some((tx, mined_height)))
 }
@@ -535,7 +549,7 @@ async fn enhance(client: &mut CompactTxStreamerClient<Channel>, db: &mut Db) -> 
                 match fetch_transaction(client, chain_tip, txid).await? {
                     None => db.set_transaction_status(txid, TransactionStatus::TxidNotRecognized)?,
                     Some((tx, mined_height)) => {
-                        decrypt_and_store_transaction(&TestNetwork, db, &tx, mined_height)?
+                        decrypt_and_store_transaction(&network(), db, &tx, mined_height)?
                     }
                 }
             }
@@ -586,7 +600,7 @@ async fn send_once(config: &SyncConfig, request: &SendRequest) -> anyhow::Result
 
     let proposal = propose_transfer(
         &mut db,
-        &TestNetwork,
+        &network(),
         account,
         &GreedyInputSelector::new(),
         &change_strategy,
@@ -598,12 +612,12 @@ async fn send_once(config: &SyncConfig, request: &SendRequest) -> anyhow::Result
     )
     .map_err(|e: TransferError| anyhow!("could not build proposal: {e}"))?;
 
-    let usk = UnifiedSpendingKey::from_seed(&TestNetwork, &config.seed, AccountId::ZERO)
+    let usk = UnifiedSpendingKey::from_seed(&network(), &config.seed, AccountId::ZERO)
         .map_err(|e| anyhow!("deriving spending key: {e:?}"))?;
     let prover = LocalTxProver::bundled();
     let txids = create_proposed_transactions(
         &mut db,
-        &TestNetwork,
+        &network(),
         &SystemClock,
         &mut os_rng(),
         &prover,
@@ -710,7 +724,7 @@ fn spendable_of(balance: &AccountBalance) -> u64 {
 /// The signer's own account (seed account 0), if registered yet. Pots are
 /// separate accounts in the same database.
 fn main_account(config: &SyncConfig, db: &Db) -> anyhow::Result<Option<AccountUuid>> {
-    let usk = UnifiedSpendingKey::from_seed(&TestNetwork, &config.seed, AccountId::ZERO)
+    let usk = UnifiedSpendingKey::from_seed(&network(), &config.seed, AccountId::ZERO)
         .map_err(|e| anyhow!("deriving main key: {e:?}"))?;
     Ok(db
         .get_account_for_ufvk(&usk.to_unified_full_viewing_key())?
@@ -797,8 +811,8 @@ async fn register_pot(
     )?;
 
     let record = PotRecord {
-        viewing_key: ufvk.encode(&TestNetwork).map_err(|e| anyhow!("encoding the viewing key: {e:?}"))?,
-        address: address.encode(&TestNetwork),
+        viewing_key: ufvk.encode(&network()).map_err(|e| anyhow!("encoding the viewing key: {e:?}"))?,
+        address: address.encode(&network()),
         birthday_height,
         claimed_txid: None,
     };
@@ -818,7 +832,7 @@ async fn create_pot(config: &SyncConfig) -> anyhow::Result<NewPot> {
         bip39::Mnemonic::from_entropy(&entropy).map_err(|e| anyhow!("mnemonic: {e:?}"))?;
     let seed = mnemonic.to_seed("");
 
-    let usk = UnifiedSpendingKey::from_seed(&TestNetwork, &seed, AccountId::ZERO)
+    let usk = UnifiedSpendingKey::from_seed(&network(), &seed, AccountId::ZERO)
         .map_err(|e| anyhow!("deriving pot key: {e:?}"))?;
     let ufvk = usk.to_unified_full_viewing_key();
     let fingerprint =
@@ -845,8 +859,8 @@ async fn import_pot(
     viewing_key: &str,
     seed_fingerprint: &str,
 ) -> anyhow::Result<ImportedPot> {
-    let ufvk = UnifiedFullViewingKey::decode(&TestNetwork, viewing_key.trim())
-        .map_err(|e| anyhow!("that is not a valid testnet viewing key: {e}"))?;
+    let ufvk = UnifiedFullViewingKey::decode(&network(), viewing_key.trim())
+        .map_err(|e| anyhow!("that is not a valid viewing key for this network: {e}"))?;
     // The same shape as the pots made here: shielded keys for both pools, so a
     // sweep can spend whatever the pot received.
     if ufvk.orchard().is_none() || ufvk.sapling().is_none() {
@@ -888,7 +902,7 @@ fn pot_info(config: &SyncConfig, status: &SyncStatus, pot_id: &str) -> anyhow::R
         .get(pot_id)
         .cloned()
         .ok_or_else(|| anyhow!("unknown pot {pot_id}"))?;
-    let ufvk = UnifiedFullViewingKey::decode(&TestNetwork, &record.viewing_key)
+    let ufvk = UnifiedFullViewingKey::decode(&network(), &record.viewing_key)
         .map_err(|e| anyhow!("stored viewing key is invalid: {e}"))?;
     let db = open_db(config)?;
     let account = db
@@ -968,10 +982,10 @@ async fn claim_pot(
     let mnemonic = bip39::Mnemonic::parse(seed_phrase.trim())
         .map_err(|_| anyhow!("that is not a valid seed phrase"))?;
     let seed = mnemonic.to_seed("");
-    let usk = UnifiedSpendingKey::from_seed(&TestNetwork, &seed, AccountId::ZERO)
+    let usk = UnifiedSpendingKey::from_seed(&network(), &seed, AccountId::ZERO)
         .map_err(|e| anyhow!("deriving pot key: {e:?}"))?;
     let ufvk = usk.to_unified_full_viewing_key();
-    if ufvk.encode(&TestNetwork).map_err(|e| anyhow!("encoding the viewing key: {e:?}"))? != record.viewing_key {
+    if ufvk.encode(&network()).map_err(|e| anyhow!("encoding the viewing key: {e:?}"))? != record.viewing_key {
         return Err(anyhow!("the seed phrase does not match this pot"));
     }
 
@@ -991,7 +1005,7 @@ async fn claim_pot(
     // Everything, or fail: never hand the winner a partial sweep.
     let proposal = propose_send_max_transfer(
         &mut db,
-        &TestNetwork,
+        &network(),
         account,
         &[ShieldedPool::Sapling, ShieldedPool::Orchard, ShieldedPool::Ironwood],
         &StandardFeeRule::Zip317,
@@ -1013,7 +1027,7 @@ async fn claim_pot(
     // read it; viewers just see the pot's balance go to zero.
     let txids = create_proposed_transactions(
         &mut db,
-        &TestNetwork,
+        &network(),
         &SystemClock,
         &mut os_rng(),
         &prover,
